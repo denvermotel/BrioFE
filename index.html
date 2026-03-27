@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Briofé - In Arrivo...</title>
+  <style>
+    body {
+      background-color: #000080; /* Blu scuro */
+      color: #fff; /* Testo bianco */
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    img {
+      max-width: 300px;
+      margin-bottom: 20px;
+    }
+
+    .tamarro {
+      font-size: 3em;
+      font-weight: bold;
+      animation: blinker 1s linear infinite;
+    }
+
+    @keyframes blinker {
+      50% {
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <img src="img/logobriofe1.png" alt="Briofé Logo">
+  <div class="tamarro">in arrivo...</div>
+</body>
+</html>
