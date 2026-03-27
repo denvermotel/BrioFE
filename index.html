@@ -3,42 +3,602 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Briofé - In Arrivo...</title>
-  <style>
-    body {
-      background-color: #000080; /* Blu scuro */
-      color: #fff; /* Testo bianco */
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-    }
-
-    img {
-      max-width: 300px;
-      margin-bottom: 20px;
-    }
-
-    .tamarro {
-      font-size: 3em;
-      font-weight: bold;
-      animation: blinker 1s linear infinite;
-    }
-
-    @keyframes blinker {
-      50% {
-        opacity: 0;
-      }
-    }
-  </style>
+  <meta name="description" content="BrioFE - Programma di Fatturazione Elettronica. Genera fatture elettroniche XML FPR12 conformi SDI.">
+  <title>BrioFE — Fatturazione Elettronica</title>
+  <link rel="icon" type="image/png" href="img/logobriofe1.png">
+  <link rel="stylesheet" href="asset/style.css">
 </head>
 <body>
-  <img src="img/logobriofe1.png" alt="Briofé Logo">
-  <div class="tamarro">in arrivo...</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════ -->
+<header class="app-header">
+  <img src="img/logobriofe1.png" alt="BrioFE Logo" class="logo">
+  <div class="brand">
+    <div class="brand-name">Brio<span>FE</span></div>
+    <div class="brand-sub">Programma di Fatturazione Elettronica</div>
+  </div>
+
+  <div class="header-disclaimer">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span><strong>Software in fase di sviluppo alpha</strong></br>Non utilizzare i file generati per l'invio reale al Sistema di Interscambio (SDI). L'autore non si assume alcuna responsabilità per eventuali utilizzi impropri o per danni derivanti dall'uso di questo software.</span>
+  </div>
+
+  <div class="header-right">
+    <a href="presentation.html" class="header-link" title="Pagina di presentazione del progetto">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      Presentazione
+    </a>
+    <span class="header-version">v0.01 alpha</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MAIN CONTENT
+════════════════════════════════════════════════════════════ -->
+<div class="page-wrapper">
+  <div class="main-content">
+
+    <!-- TOP ACTIONS BAR -->
+    <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+      <button type="button" class="btn-import-xml" onclick="importXML()" title="Funzione disponibile in versione futura">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Importa XML
+        <span style="font-size:.65rem;opacity:.7;font-weight:400">(prossimamente)</span>
+      </button>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         CEDENTE + CLIENTE
+    ─────────────────────────────────────────────────────── -->
+    <div class="header-grid">
+
+      <!-- DATI CEDENTE / PRESTATORE -->
+      <div class="card">
+        <div class="card-header">
+          <div class="section-icon">🏢</div>
+          <h2>Dati Cedente / Prestatore</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+
+            <div class="field col-8">
+              <label>Denominazione / Ragione Sociale <span class="required">*</span></label>
+              <input type="text" id="cedente-denominazione" placeholder="Es. Mario Rossi S.r.l." autocomplete="organization">
+            </div>
+
+            <div class="field col-4">
+              <label>Regime Fiscale <span class="required">*</span></label>
+              <select id="cedente-regime">
+                <option value="RF01">RF01 – Ordinario</option>
+                <option value="RF02">RF02 – Contribuenti minimi</option>
+                <option value="RF04">RF04 – Agricoltura e pesca</option>
+                <option value="RF05">RF05 – Sali e tabacchi</option>
+                <option value="RF06">RF06 – Commercio fiammiferi</option>
+                <option value="RF07">RF07 – Editoria</option>
+                <option value="RF10">RF10 – Intrattenimenti</option>
+                <option value="RF11">RF11 – Agenzie viaggi</option>
+                <option value="RF12">RF12 – Agriturismo</option>
+                <option value="RF13">RF13 – Vendite a domicilio</option>
+                <option value="RF14">RF14 – Beni usati</option>
+                <option value="RF15">RF15 – Aste</option>
+                <option value="RF16">RF16 – IVA cassa PA</option>
+                <option value="RF17">RF17 – IVA cassa</option>
+                <option value="RF18">RF18 – Altro</option>
+                <option value="RF19">RF19 – Forfettario</option>
+                <option value="RF20">RF20 – Franchigia IVA UE</option>
+              </select>
+            </div>
+
+            <div class="field col-6">
+              <label>Partita IVA <span class="required">*</span></label>
+              <input type="text" id="cedente-piva" placeholder="12345678901" maxlength="11" autocomplete="off">
+              <span class="field-hint">11 cifre (senza IT)</span>
+            </div>
+
+            <div class="field col-6">
+              <label>Codice Fiscale <span class="optional">(opzionale se diverso da P.IVA)</span></label>
+              <input type="text" id="cedente-cf" placeholder="RSSMRA70A01H501U" maxlength="16" autocomplete="off">
+            </div>
+
+            <div class="col-12">
+              <div class="section-divider">Sede Legale</div>
+            </div>
+
+            <div class="field col-9">
+              <label>Indirizzo <span class="required">*</span></label>
+              <input type="text" id="cedente-indirizzo" placeholder="Via Roma, 1">
+            </div>
+
+            <div class="field col-3">
+              <label>CAP <span class="required">*</span></label>
+              <input type="text" id="cedente-cap" placeholder="90100" maxlength="5">
+            </div>
+
+            <div class="field col-6">
+              <label>Comune <span class="required">*</span></label>
+              <input type="text" id="cedente-comune" placeholder="Palermo">
+            </div>
+
+            <div class="field col-3">
+              <label>Provincia</label>
+              <input type="text" id="cedente-provincia" placeholder="PA" maxlength="2">
+            </div>
+
+            <div class="col-12">
+              <div class="section-divider">Contatti <span class="optional" style="font-weight:400;text-transform:none;font-size:.7rem">(opzionali)</span></div>
+            </div>
+
+            <div class="field col-6">
+              <label>Telefono</label>
+              <input type="tel" id="cedente-tel" placeholder="+39 091 123456">
+            </div>
+
+            <div class="field col-6">
+              <label>Email</label>
+              <input type="email" id="cedente-email" placeholder="info@azienda.it">
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- DATI CESSIONARIO / COMMITTENTE -->
+      <div class="card">
+        <div class="card-header">
+          <div class="section-icon">👤</div>
+          <h2>Dati Cliente / Cessionario</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+
+            <div class="field col-12">
+              <label>Denominazione / Ragione Sociale <span class="required">*</span></label>
+              <input type="text" id="cliente-denominazione" placeholder="Es. Bianchi S.p.A." autocomplete="off">
+              <span class="field-hint">Per persona fisica, lasciare vuoto e usare Nome + Cognome sotto</span>
+            </div>
+
+            <div class="field col-6">
+              <label>Nome <span class="optional">(persona fisica)</span></label>
+              <input type="text" id="cliente-nome" placeholder="Mario">
+            </div>
+
+            <div class="field col-6">
+              <label>Cognome <span class="optional">(persona fisica)</span></label>
+              <input type="text" id="cliente-cognome" placeholder="Bianchi">
+            </div>
+
+            <div class="field col-6">
+              <label>Partita IVA <span class="optional">(se soggetto IVA)</span></label>
+              <input type="text" id="cliente-piva" placeholder="12345678901" maxlength="11">
+            </div>
+
+            <div class="field col-6">
+              <label>Codice Fiscale <span class="optional">(se privato)</span></label>
+              <input type="text" id="cliente-cf" placeholder="BNCMRA80A01F205Z" maxlength="16">
+            </div>
+
+            <div class="col-12">
+              <div class="section-divider">Sede / Domicilio Fiscale</div>
+            </div>
+
+            <div class="field col-9">
+              <label>Indirizzo <span class="required">*</span></label>
+              <input type="text" id="cliente-indirizzo" placeholder="Via Libertà, 5">
+            </div>
+
+            <div class="field col-3">
+              <label>CAP <span class="required">*</span></label>
+              <input type="text" id="cliente-cap" placeholder="20121" maxlength="5">
+            </div>
+
+            <div class="field col-5">
+              <label>Comune <span class="required">*</span></label>
+              <input type="text" id="cliente-comune" placeholder="Milano">
+            </div>
+
+            <div class="field col-3">
+              <label>Provincia</label>
+              <input type="text" id="cliente-provincia" placeholder="MI" maxlength="2">
+            </div>
+
+            <div class="field col-4">
+              <label>Nazione</label>
+              <select id="cliente-nazione">
+                <option value="IT" selected>IT – Italia</option>
+                <option value="AT">AT – Austria</option>
+                <option value="BE">BE – Belgio</option>
+                <option value="CH">CH – Svizzera</option>
+                <option value="DE">DE – Germania</option>
+                <option value="ES">ES – Spagna</option>
+                <option value="FR">FR – Francia</option>
+                <option value="GB">GB – Gran Bretagna</option>
+                <option value="GR">GR – Grecia</option>
+                <option value="NL">NL – Paesi Bassi</option>
+                <option value="PT">PT – Portogallo</option>
+                <option value="US">US – USA</option>
+                <option value="SM">SM – San Marino</option>
+                <option value="VA">VA – Città del Vaticano</option>
+              </select>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         TRASMISSIONE SDI
+    ─────────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div class="section-icon">📡</div>
+        <h2>Trasmissione SDI</h2>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+
+          <div class="field col-4">
+            <label>Codice SDI Destinatario</label>
+            <input type="text" id="cedente-sdi" value="0000000" maxlength="7"
+                   style="text-transform:uppercase;font-family:'JetBrains Mono',monospace;letter-spacing:1px"
+                   placeholder="0000000"
+                   oninput="this.value=this.value.toUpperCase()">
+            <span class="field-hint">7 caratteri alfanumerici — lascia <strong>0000000</strong> se il destinatario usa PEC o è un privato</span>
+          </div>
+
+          <div class="field col-4">
+            <label>PEC Destinatario <span class="optional">(alternativa al codice SDI)</span></label>
+            <input type="email" id="cedente-pec" placeholder="fatture@pec.example.it">
+          </div>
+
+          <div class="field col-4" style="align-self:flex-end">
+            <div style="background:var(--secondary-light);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:.78rem;color:var(--text-muted);line-height:1.5">
+              💡 <strong>Come funziona:</strong> se il cliente ha un codice SDI, inseriscilo qui.
+              Altrimenti usa <code>0000000</code> e inserisci la PEC.</br>
+              Se non conosci ne il codice SDI ne la PEC usa il codice standard <code>0000000</code> 
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         INTESTAZIONE FATTURA
+    ─────────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div class="section-icon">📄</div>
+        <h2>Intestazione Fattura</h2>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+
+          <div class="field col-3">
+            <label>Numero Fattura <span class="required">*</span></label>
+            <input type="text" id="fattura-numero" placeholder="2025/001">
+          </div>
+
+          <div class="field col-3">
+            <label>Data Fattura <span class="required">*</span></label>
+            <input type="date" id="fattura-data">
+          </div>
+
+          <div class="field col-3">
+            <label>Tipo Documento <span class="required">*</span></label>
+            <select id="fattura-tipo">
+              <option value="TD01">TD01 – Fattura</option>
+              <option value="TD04">TD04 – Nota di credito</option>
+              <option value="TD05">TD05 – Nota di debito</option>
+              <option value="TD24">TD24 – Fattura differita (art.21 c.4 a)</option>
+              <option value="TD25">TD25 – Fattura differita (art.21 c.4 b)</option>
+              <option value="TD26">TD26 – Cessione beni ammortizzabili</option>
+              <option value="TD27">TD27 – Fattura autoconsumo/cessione gratuita</option>
+            </select>
+          </div>
+
+          <div class="field col-3">
+            <label>Esigibilità IVA</label>
+            <select id="fattura-esigibilita">
+              <option value="I">I – Immediata</option>
+              <option value="D">D – Differita</option>
+              <option value="S">S – Scissione pagamenti (Split Payment)</option>
+            </select>
+          </div>
+
+          <div class="field col-12">
+            <label>Causale <span class="optional">(opzionale)</span></label>
+            <textarea id="fattura-causale" placeholder="Descrizione sintetica dell'operazione (es: Prestazione di servizi consulenza informatica)..." rows="2"></textarea>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         RIGHE FATTURA
+    ─────────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div class="section-icon">📋</div>
+        <h2>Righe Fattura</h2>
+      </div>
+      <div class="card-body" style="padding-top:10px">
+
+        <div class="table-wrapper">
+          <table class="invoice-table">
+            <thead>
+              <tr>
+                <th class="td-nr">#</th>
+                <th class="td-desc">Descrizione <span style="color:#F87171">*</span></th>
+                <th class="td-um">U.M.</th>
+                <th class="td-qty">Q.tà <span style="color:#F87171">*</span></th>
+                <th class="td-price">Prezzo Unit. <span style="color:#F87171">*</span></th>
+                <th class="td-disc">Sconto %</th>
+                <th class="td-iva">IVA % <span style="color:#F87171">*</span></th>
+                <th class="td-natura">Natura (se IVA=0%)</th>
+                <th class="td-tot text-right" style="background:#006D61">Imponibile €</th>
+                <th class="td-del"></th>
+              </tr>
+            </thead>
+            <tbody id="linee-body">
+              <!-- righe inserite dinamicamente da JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:10px">
+          <button type="button" class="btn-add-row" onclick="addLine()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Aggiungi riga
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         TOTALI
+    ─────────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div class="section-icon" style="background:var(--primary)">∑</div>
+        <h2>Totali</h2>
+      </div>
+      <div class="card-body">
+        <div class="totals-grid">
+          <div class="totals-box">
+            <div class="totals-row">
+              <span class="tot-label">Totale Imponibile</span>
+              <span class="tot-value" id="tot-imponibile">0,00 €</span>
+            </div>
+            <div class="totals-row">
+              <span class="tot-label">Totale IVA</span>
+              <span class="tot-value" id="tot-iva">0,00 €</span>
+            </div>
+            <div class="totals-row total-final">
+              <span class="tot-label">Totale Fattura</span>
+              <span class="tot-value" id="tot-fattura">0,00 €</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         RIEPILOGO IVA + BOLLO/RIVALSA
+    ─────────────────────────────────────────────────────── -->
+    <div class="bottom-grid">
+
+      <!-- RIEPILOGO IVA -->
+      <div class="card">
+        <div class="card-header">
+          <div class="section-icon" style="background:var(--primary)">%</div>
+          <h2>Riepilogo IVA</h2>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="riepilogo-iva-table">
+            <thead>
+              <tr>
+                <th>Imponibile €</th>
+                <th>Aliquota IVA</th>
+                <th>Importo IVA €</th>
+              </tr>
+            </thead>
+            <tbody id="riepilogo-iva-body">
+              <tr><td colspan="3" class="riepilogo-empty">Nessuna riga inserita</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BOLLO + RIVALSA BOLLO -->
+      <div class="card">
+        <div class="card-header">
+          <div class="section-icon" style="background:#C0392B">☑</div>
+          <h2>Bollo Virtuale</h2>
+        </div>
+        <div class="card-body">
+          <div class="bollo-section">
+
+            <!-- Bollo Virtuale SI/NO -->
+            <div class="field">
+              <label>Bollo Virtuale</label>
+              <div class="checkbox-group">
+                <label class="checkbox-label" id="label-bollo-si">
+                  <input type="checkbox" id="bollo-si" name="bollo" onchange="
+                    el('bollo-no').checked=false;
+                    handleBolloChange();
+                  "> Sì
+                </label>
+                <label class="checkbox-label checked" id="label-bollo-no">
+                  <input type="checkbox" id="bollo-no" name="bollo" checked onchange="
+                    el('bollo-si').checked=false;
+                    handleBolloChange();
+                  "> No
+                </label>
+              </div>
+              <span class="field-hint">Art. 13 Tariffa, Allegato A, D.P.R. 642/1972 — obbligatorio per fatture esenti/fuori campo IVA &gt; €77,47</span>
+            </div>
+
+            <!-- Importo + Rivalsa: visibili solo se bollo = SI -->
+            <div id="bollo-dettaglio" style="display:none">
+
+              <!-- Importo Bollo -->
+              <div id="bollo-importo-row" class="bollo-importo-row">
+                <div class="field" style="max-width:200px">
+                  <label>Importo Bollo (€)</label>
+                  <input type="number" id="importo-bollo" value="2.00" step="0.01" min="0"
+                         oninput="recalc(); updateBolloRivalsaRow();">
+                </div>
+              </div>
+
+              <!-- Rivalsa Bollo -->
+              <div class="field" style="margin-top:10px">
+                <label>Rivalsa Bollo</label>
+                <div class="checkbox-group">
+                  <label class="checkbox-label" id="label-rivalsa-si">
+                    <input type="checkbox" id="rivalsa-si" name="rivalsa" onchange="
+                      el('rivalsa-no').checked=false;
+                      handleRivalsaBolloChange();
+                    "> Sì
+                  </label>
+                  <label class="checkbox-label checked" id="label-rivalsa-no">
+                    <input type="checkbox" id="rivalsa-no" name="rivalsa" checked onchange="
+                      el('rivalsa-si').checked=false;
+                      handleRivalsaBolloChange();
+                    "> No
+                  </label>
+                </div>
+                <span class="field-hint">Se <strong>Sì</strong>: viene aggiunta automaticamente una riga in fattura con l'importo del bollo, IVA 0%, Natura <strong>N1</strong> (Esclusa art.15 D.P.R. 642/1972)</span>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         PAGAMENTO
+    ─────────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div class="section-icon" style="background:var(--primary)">€</div>
+        <h2>Dati di Pagamento</h2>
+      </div>
+      <div class="card-body">
+
+        <!-- Totale da pagare + Scadenza + Modalità -->
+        <div class="pagamento-header-row">
+
+          <div class="totale-pagare-box">
+            <div class="label">Totale da Pagare</div>
+            <div class="amount" id="totale-pagare-amount">0,00 €</div>
+          </div>
+
+          <div class="pagamento-fields">
+            <div class="form-grid">
+              <div class="field col-4">
+                <label>Condizioni Pagamento</label>
+                <select id="pagamento-condizioni">
+                  <option value="TP02" selected>TP02 – Completo</option>
+                  <option value="TP01">TP01 – A rate</option>
+                  <option value="TP03">TP03 – Anticipo</option>
+                </select>
+              </div>
+              <div class="field col-4">
+                <label>Data Scadenza</label>
+                <input type="date" id="pagamento-scadenza">
+              </div>
+              <div class="field col-4">
+                <label>Importo <span class="required">*</span></label>
+                <input type="number" id="pagamento-importo" step="0.01" min="0" placeholder="0.00">
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Modalità + IBAN + BIC -->
+        <div class="form-grid" style="margin-top:12px">
+
+          <div class="field col-4">
+            <label>Modalità Pagamento <span class="required">*</span></label>
+            <select id="pagamento-modalita">
+              <option value="MP05" selected>MP05 – Bonifico</option>
+              <option value="MP01">MP01 – Contanti</option>
+              <option value="MP02">MP02 – Assegno</option>
+              <option value="MP03">MP03 – Assegno circolare</option>
+              <option value="MP07">MP07 – Bollettino bancario</option>
+              <option value="MP08">MP08 – Carta di pagamento</option>
+              <option value="MP12">MP12 – RIBA</option>
+              <option value="MP13">MP13 – MAV</option>
+              <option value="MP19">MP19 – SEPA Direct Debit</option>
+              <option value="MP20">MP20 – SEPA Direct Debit CORE</option>
+              <option value="MP21">MP21 – SEPA Direct Debit B2B</option>
+              <option value="MP23">MP23 – PagoPA</option>
+            </select>
+          </div>
+
+          <div class="field col-5">
+            <label>IBAN <span class="optional">(consigliato per bonifico)</span></label>
+            <input type="text" id="pagamento-iban" placeholder="IT60X0542811101000000123456" maxlength="34" style="text-transform:uppercase; font-family:'JetBrains Mono',monospace; font-size:.8rem; letter-spacing:.5px">
+          </div>
+
+          <div class="field col-3">
+            <label>BIC / SWIFT <span class="optional">(opzionale)</span></label>
+            <input type="text" id="pagamento-bic" placeholder="UNCRITMM" maxlength="11" style="text-transform:uppercase; font-family:'JetBrains Mono',monospace; font-size:.8rem">
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         GENERA XML
+    ─────────────────────────────────────────────────────── -->
+    <div class="generate-bar">
+      <div class="generate-info">
+        <strong>Genera la Fattura Elettronica XML</strong><br>
+        Il file XML generato è conforme allo standard SDI — FPR12 v1.2.3 (fatture verso privati e PA).
+        Nessun dato viene salvato o inviato. La fattura va poi trasmessa tramite il proprio intermediario SDI.
+      </div>
+      <button type="button" class="btn-generate" onclick="generateXML()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+          <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+        </svg>
+        Genera XML
+      </button>
+    </div>
+
+  </div><!-- end .main-content -->
+</div><!-- end .page-wrapper -->
+
+<!-- ═══════════════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════════════════ -->
+<footer class="app-footer">
+  <strong>BrioFE</strong> v0.01 alpha — Programma di Fatturazione Elettronica &nbsp;|&nbsp;
+  Conforme alle specifiche <a href="https://www.fatturapa.gov.it" target="_blank" rel="noopener">SDI FPR12 v1.2.3</a> dell'Agenzia delle Entrate &nbsp;|&nbsp;
+  Nessun dato viene salvato o trasmesso a terzi &nbsp;|&nbsp;
+  <a href="https://github.com/denvermotel/BrioFE" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script src="asset/app.js"></script>
 </body>
 </html>
