@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrioFE - Visualizzatore Fatture XML</title>
+    <style>
+        /* RESET GENERALE PER OCCUPARE TUTTO LO SCHERMO */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Impedisce lo scrollbar per un look "app" */
+            background-color: #000080; /* Blu scuro originale */
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* HEADER / NAVIGAZIONE IN ALTO A DESTRA */
+        header {
+            width: 100%;
+            padding: 20px 0;
+            display: flex;
+            justify-content: flex-end; /* Sposta i link a destra */
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 10;
+        }
+
+        .nav-links {
+            margin-right: 40px; /* Spazio dal bordo destro */
+            display: flex;
+            gap: 30px; /* Spazio tra i link */
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+
+        .nav-links a:hover {
+            opacity: 0.7;
+        }
+
+        /* CONTENITORE PRINCIPALE CENTRATO */
+        main {
+            flex: 1; /* Occupa tutto lo spazio verticale residuo */
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Centra verticalmente */
+            align-items: center; /* Centra orizzontalmente */
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* AREA LOGO (Fallback se l'immagine manca) */
+        .logo-container {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #aaa;
+        }
+        
+
+        .logo-container img { max-width: 300px; max-height: 100px; }
+
+        /* TITOLO PRINCIPALE (Stile originale) */
+        h1 {
+            font-size: 64px; /* Molto grande per FullHD */
+            font-weight: bold;
+            margin: 0 0 40px 0;
+            line-height: 1.1;
+        }
+        .tamarro {
+            font-size: 3em;
+            font-weight: bold;
+            animation: blinker 1s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+                }
+        }
+        /* PULSANTE FUMETTO (STILE TAMARRO/COMIC) */
+        .comic-button-container {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s;
+            /* Dimensioni ottimali per FullHD */
+            width: 800px; 
+            height: 400px;
+        }
+
+        .comic-button-container:hover {
+            transform: scale(1.05); /* Effetto ingrandimento al passaggio */
+        }
+
+        .comic-button-container:active {
+            transform: scale(0.95); /* Effetto schiacciamento al click */
+        }
+
+        /* Il fumetto SVG (Sfondo del pulsante) */
+        .comic-shape {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Testo dentro il fumetto */
+        .comic-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Centra perfettamente il testo */
+            color: #E31D1A; /* Rosso acceso del testo */
+            font-size: 80px; /* Testo enorme */
+            font-weight: 900; /* Super grassetto */
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            font-family: 'Arial Black', Gadget, sans-serif; /* Font più "duro" */
+            text-shadow: 
+                2px 2px 0 #000,
+               -2px -2px 0 #000,  
+                2px -2px 0 #000,
+               -2px 2px 0 #000,
+                0px 4px 0 #000; /* Contorno nero spesso per il testo */
+            width: 80%; /* Impedisce al testo di uscire dai bordi */
+            pointer-events: none; /* Il click passa attraverso il testo al container */
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="nav-links">
+            <a href="presentation.html">Presentazione</a>
+            <a href="index.html">Pagina principale</a>
+            <a href="https://github.com/denvermotel/BrioFE" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </header>
+
+    <main>
+        <img src="img/logobriofe1.png" alt="BrioFE Logo">
+        <div class="tamarro">Visualizzatore fatture XML in arrivo...</div>
+
+        <div class="comic-button-container" onclick="location.href='index.html';">
+            
+            <svg class="comic-shape" viewBox="0 0 500 250" preserveAspectRatio="none">
+                <defs>
+                    <pattern id="dottedPattern" patternUnits="userSpaceOnUse" width="10" height="10">
+                        <circle cx="3" cy="3" r="3" fill="#E31D1A"/> </pattern>
+                </defs>
+                
+                <polygon points="10,120 40,70 90,90 130,30 190,70 260,10 320,60 380,20 420,80 490,60 460,130 490,190 420,180 390,240 310,200 250,240 180,200 120,240 80,180 10,210" 
+                         fill="black" transform="translate(8, 8)" />
+                
+                <polygon points="10,120 40,70 90,90 130,30 190,70 260,10 320,60 380,20 420,80 490,60 460,130 490,190 420,180 390,240 310,200 250,240 180,200 120,240 80,180 10,210" 
+                         fill="#FFEB3B" stroke="black" stroke-width="4" />
+                
+                <polygon points="10,120 40,70 90,90 130,30 190,70 260,10 320,60 380,20 420,80 490,60 460,130 490,190 420,180 390,240 310,200 250,240 180,200 120,240 80,180 10,210" 
+                         fill="url(#dottedPattern)" opacity="0.2" />
+
+            </svg>
+            
+            <div class="comic-text">Torna alla home</div>
+        </div>
+
+    </main>
+
+</body>
+</html>

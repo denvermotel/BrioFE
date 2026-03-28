@@ -1,9 +1,6 @@
 /**
  * BrioFE - Fatturazione Elettronica
- * app.js v0.01 alpha
- * 
- * Genera fatture elettroniche in formato XML FPR12 (B2B/privati)
- * secondo le specifiche SDI dell'Agenzia delle Entrate italiana.
+ * app.js v0.02 alpha
  */
 
 'use strict';
@@ -13,51 +10,27 @@
 ───────────────────────────────────────────────────────────── */
 let lineCounter = 0;
 const activeLines = new Set();
+const BOLLO_ROW_ID = 'bollo-rivalsa-row';
+let bolloManuallyDisabled = false;   /* true quando l'utente disattiva manualmente il bollo */
 
 /* ─────────────────────────────────────────────────────────────
-   UTILITY FUNCTIONS
+   UTILITY
 ───────────────────────────────────────────────────────────── */
-
-/** Escapes special XML characters */
 function escXml(str) {
   if (str == null) return '';
-  return String(str)
-    .replace(/&/g,  '&amp;')
-    .replace(/</g,  '&lt;')
-    .replace(/>/g,  '&gt;')
-    .replace(/"/g,  '&quot;')
-    .replace(/'/g,  '&apos;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 }
-
-/** Parses a number from string (supports both comma and dot decimals) */
 function parseNum(s) {
   if (s == null || s === '') return 0;
   return parseFloat(String(s).replace(',', '.')) || 0;
 }
-
-/** Formats number with fixed decimal places */
-function fmt(n, decimals = 2) {
-  return parseFloat(n || 0).toFixed(decimals);
-}
-
-/** Formats number in Italian locale (for display) */
+function fmt(n, decimals = 2) { return parseFloat(n || 0).toFixed(decimals); }
 function fmtIt(n, decimals = 2) {
-  return parseFloat(n || 0).toLocaleString('it-IT', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  });
+  return parseFloat(n || 0).toLocaleString('it-IT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
-
-/** Gets element value trimmed */
-function val(id) {
-  const el = document.getElementById(id);
-  return el ? el.value.trim() : '';
-}
-
-/** Gets element, returns null if not found */
+function val(id) { const e = document.getElementById(id); return e ? e.value.trim() : ''; }
 function el(id) { return document.getElementById(id); }
 
-/** Shows toast notification */
 function toast(msg, type = 'success', duration = 4000) {
   const container = el('toast-container');
   if (!container) return;
@@ -66,26 +39,149 @@ function toast(msg, type = 'success', duration = 4000) {
   div.className = `toast ${type}`;
   div.innerHTML = `<span style="font-size:1.1em;font-weight:700">${icons[type]||'ℹ'}</span><span>${msg}</span>`;
   container.appendChild(div);
-  setTimeout(() => {
-    div.style.opacity = '0';
-    div.style.transform = 'translateX(20px)';
-    div.style.transition = '.3s ease';
-    setTimeout(() => div.remove(), 300);
-  }, duration);
+  setTimeout(() => { div.style.opacity='0'; div.style.transform='translateX(20px)'; div.style.transition='.3s ease'; setTimeout(()=>div.remove(),300); }, duration);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NAVIGATION
+───────────────────────────────────────────────────────────── */
+let navOpen = false;
+
+function isDesktop() { return window.innerWidth >= 1024; }
+
+function toggleNav() {
+  navOpen = !navOpen;
+  const nav    = el('side-nav');
+  const body   = el('app-body');
+  const header = document.querySelector('.app-header');
+
+  if (isDesktop()) {
+    /* Desktop: toggle between full width and collapsed tab strip */
+    nav?.classList.toggle('collapsed', !navOpen);
+    body?.classList.toggle('nav-collapsed', !navOpen);
+    header?.classList.toggle('nav-collapsed', !navOpen);
+  } else {
+    /* Mobile: overlay slide-in */
+    nav?.classList.toggle('open', navOpen);
+  }
+}
+
+/* Handle resize: re-sync state between mobile/desktop */
+window.addEventListener('resize', () => {
+  const nav    = el('side-nav');
+  const body   = el('app-body');
+  const header = document.querySelector('.app-header');
+  if (!nav) return;
+  if (isDesktop()) {
+    nav.classList.remove('open');
+    if (navOpen) {
+      nav.classList.remove('collapsed');
+      body?.classList.remove('nav-collapsed');
+      header?.classList.remove('nav-collapsed');
+    } else {
+      nav.classList.add('collapsed');
+      body?.classList.add('nav-collapsed');
+      header?.classList.add('nav-collapsed');
+    }
+  } else {
+    nav.classList.remove('collapsed');
+    body?.classList.remove('nav-collapsed');
+    header?.classList.remove('nav-collapsed');
+    nav.classList.toggle('open', navOpen);
+  }
+});
+
+function navClick(link) {
+  /* Aggiorna active link */
+  document.querySelectorAll('.side-nav-link').forEach(l => l.classList.remove('active'));
+  link.classList.add('active');
+  /* Chiudi su mobile */
+  if (window.innerWidth < 1024) toggleNav();
+}
+
+/* Evidenzia la voce di menu in base alla sezione visibile */
+function updateActiveNav() {
+  const sections = ['sec-anagrafica','sec-sdi','sec-intestazione','sec-righe','sec-totali','sec-riepilogo','sec-pagamento','sec-genera'];
+  let current = sections[0];
+  sections.forEach(id => {
+    const anchor = el(id);
+    if (anchor) {
+      const rect = anchor.getBoundingClientRect();
+      if (rect.top <= 80) current = id;
+    }
+  });
+  document.querySelectorAll('.side-nav-link').forEach(link => {
+    const href = link.getAttribute('href');
+    link.classList.toggle('active', href === '#' + current);
+  });
+}
+
+window.addEventListener('scroll', updateActiveNav, { passive: true });
+
+/* ─────────────────────────────────────────────────────────────
+   PROGRESSIVO INVIO
+   Formato: BF + YY + lettera + 2 cifre
+   es. fattura 121 del 2026 → BF26B21
+───────────────────────────────────────────────────────────── */
+function computeProgressivo() {
+  const nrField = el('fattura-numero');
+  const nrRaw   = (nrField?.value?.trim()) || (nrField?.placeholder?.trim()) || '';
+  const data    = val('fattura-data');
+
+  const digits = nrRaw.replace(/\D/g, '');
+  const nr     = parseInt(digits, 10) || 0;
+
+  let yy = new Date().getFullYear().toString().slice(-2);
+  if (data) {
+    const yr = data.split('-')[0];
+    if (yr) yy = yr.slice(-2);
+  }
+
+  const letterIndex = Math.floor(nr / 100);
+  const letter      = String.fromCharCode(65 + Math.min(letterIndex, 25));
+  const last2       = String(nr % 100).padStart(2, '0');
+
+  return `BF${yy}${letter}${last2}`;
+}
+
+function updateProgressivo() {
+  const editCb = el('progressivo-edit');
+  if (editCb && editCb.checked) return; /* manuale: non sovrascrivere */
+  const field = el('progressivo-invio');
+  if (field) {
+    field.value = computeProgressivo();
+  }
+}
+
+function toggleProgressivoEdit() {
+  const cb    = el('progressivo-edit');
+  const field = el('progressivo-invio');
+  if (!field) return;
+  if (cb && cb.checked) {
+    field.removeAttribute('readonly');
+    field.dataset.editable = 'true';
+    field.classList.remove('calc-input');
+    field.focus();
+    toast('Progressivo invio modificabile manualmente.', 'warning', 3000);
+  } else {
+    field.setAttribute('readonly', '');
+    delete field.dataset.editable;
+    field.classList.add('calc-input');
+    updateProgressivo(); /* ricalcola */
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────
    LINE MANAGEMENT
 ───────────────────────────────────────────────────────────── */
-
 function addLine() {
   lineCounter++;
   const id = lineCounter;
   activeLines.add(id);
 
   const tbody = el('linee-body');
-  const row = document.createElement('tr');
-  row.id = `line-${id}`;
+  const row   = document.createElement('tr');
+  row.id      = `line-${id}`;
   row.innerHTML = `
     <td class="td-nr nr-cell">${activeLines.size}</td>
     <td class="td-desc">
@@ -139,7 +235,7 @@ function addLine() {
     </td>
     <td class="td-tot td-calc" id="imponibile-${id}">0,00</td>
     <td class="td-del">
-      <button type="button" class="btn btn-danger-outline" onclick="removeLine(${id})" title="Rimuovi riga">✕</button>
+      <button type="button" class="btn-danger-outline" onclick="removeLine(${id})" title="Rimuovi riga">✕</button>
     </td>
   `;
   tbody.appendChild(row);
@@ -158,7 +254,7 @@ function removeLine(id) {
 function renumberLines() {
   let n = 0;
   document.querySelectorAll('#linee-body tr').forEach(tr => {
-    if (tr.id === BOLLO_ROW_ID) return;   // riga bloccata: non rinumerare
+    if (tr.id === BOLLO_ROW_ID) return;
     n++;
     const nrCell = tr.querySelector('.nr-cell');
     if (nrCell) nrCell.textContent = n;
@@ -172,29 +268,22 @@ function toggleNatura(id) {
 }
 
 function recalcLine(id) {
-  const qty    = parseNum(el(`qty-${id}`)?.value);
-  const price  = parseNum(el(`price-${id}`)?.value);
-  const disc   = parseNum(el(`disc-${id}`)?.value);
-
+  const qty   = parseNum(el(`qty-${id}`)?.value);
+  const price = parseNum(el(`price-${id}`)?.value);
+  const disc  = parseNum(el(`disc-${id}`)?.value);
   const prezzoScontato = price * (1 - disc / 100);
   const imponibile     = qty * prezzoScontato;
-
   const cell = el(`imponibile-${id}`);
   if (cell) cell.textContent = fmtIt(imponibile);
-
   recalc();
 }
 
 /* ─────────────────────────────────────────────────────────────
    CALCULATIONS
 ───────────────────────────────────────────────────────────── */
-
 function buildIvaMap() {
-  /* key = "aliquota|natura" e.g. "22.00|" or "0.00|N4" */
   const map = {};
-
   document.querySelectorAll('#linee-body tr').forEach(tr => {
-    /* Riga bollo rivalsa: gestita separatamente */
     if (tr.id === BOLLO_ROW_ID) {
       const br = getBolloRivalsaData();
       if (!br) return;
@@ -203,61 +292,42 @@ function buildIvaMap() {
       map[key].imponibile += br.imponibile;
       return;
     }
-
-    const id = tr.id.replace('line-', '');
-    const qty    = parseNum(el(`qty-${id}`)?.value);
-    const price  = parseNum(el(`price-${id}`)?.value);
-    const disc   = parseNum(el(`disc-${id}`)?.value);
-    const iva    = parseFloat(el(`iva-${id}`)?.value || 22);
+    const id    = tr.id.replace('line-', '');
+    const qty   = parseNum(el(`qty-${id}`)?.value);
+    const price = parseNum(el(`price-${id}`)?.value);
+    const disc  = parseNum(el(`disc-${id}`)?.value);
+    const iva   = parseFloat(el(`iva-${id}`)?.value || 22);
     const natura = (iva === 0) ? (el(`natura-${id}`)?.value || '') : '';
-
     const prezzoScontato = price * (1 - disc / 100);
     const imponibile     = qty * prezzoScontato;
     const ivaImporto     = imponibile * iva / 100;
-
     const key = `${fmt(iva)}|${natura}`;
     if (!map[key]) map[key] = { aliquota: iva, natura, imponibile: 0, imposta: 0 };
     map[key].imponibile += imponibile;
     map[key].imposta    += ivaImporto;
   });
-
   return map;
 }
 
 function recalc() {
   const ivaMap = buildIvaMap();
+  let totImponibile = 0, totIVA = 0;
+  Object.values(ivaMap).forEach(v => { totImponibile += v.imponibile; totIVA += v.imposta; });
 
-  let totImponibile = 0;
-  let totIVA        = 0;
-
-  Object.values(ivaMap).forEach(v => {
-    totImponibile += v.imponibile;
-    totIVA        += v.imposta;
-  });
-
-  const hasBolloSi      = el('bollo-si')?.checked;
-  const hasRivalsaSi    = el('rivalsa-si')?.checked;
-  const bolloImporto    = hasBolloSi ? parseNum(el('importo-bollo')?.value) : 0;
-
-  /*
-   * Il totale fattura include:
-   * - Imponibile (somma righe normali + riga rivalsa bollo se presente)
-   * - IVA
-   * - Bollo virtuale (solo se bollo=SI e rivalsa=NO, cioè il bollo è a carico del cedente
-   *   ma deve risultare nel totale documento per il DatiBollo XML)
-   *   Se rivalsa=SI, il bollo è già contato come riga imponibile.
-   */
+  const hasBolloSi   = el('bollo-si')?.checked;
+  const hasRivalsaSi = el('rivalsa-si')?.checked;
+  const bolloImporto = hasBolloSi ? parseNum(el('importo-bollo')?.value) : 0;
   const bolloInTotale = hasBolloSi && !hasRivalsaSi ? bolloImporto : 0;
   const totFattura    = totImponibile + totIVA + bolloInTotale;
 
-  /* Aggiorna display totali */
   setCalc('tot-imponibile',       totImponibile);
   setCalc('tot-iva',              totIVA);
   setCalc('tot-fattura',          totFattura);
   setCalc('totale-pagare-amount', totFattura);
 
-  /* Aggiorna riepilogo IVA */
   updateRiepilogoIVA(ivaMap);
+  syncPagamentoImporto(totFattura);
+  checkAutoBollo();
 }
 
 function setCalc(id, value) {
@@ -265,65 +335,54 @@ function setCalc(id, value) {
   if (elem) elem.textContent = fmtIt(value) + ' €';
 }
 
+function syncPagamentoImporto(total) {
+  const impEl = el('pagamento-importo');
+  if (impEl && !impEl.dataset.manuallyEdited) {
+    impEl.value = fmt(total);
+  }
+}
+
 function updateRiepilogoIVA(ivaMap) {
   const tbody = el('riepilogo-iva-body');
   if (!tbody) return;
   tbody.innerHTML = '';
-
   const entries = Object.values(ivaMap).filter(v => Math.abs(v.imponibile) > 0.001);
-
   if (entries.length === 0) {
     tbody.innerHTML = `<tr><td colspan="3" class="riepilogo-empty">Nessuna riga inserita</td></tr>`;
     return;
   }
-
   entries.forEach(v => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${fmtIt(v.imponibile)} €</td>
-      <td>${fmt(v.aliquota)}%${v.natura ? ' (' + v.natura + ')' : ''}</td>
-      <td>${fmtIt(v.imposta)} €</td>
-    `;
+    tr.innerHTML = `<td>${fmtIt(v.imponibile)} €</td><td>${fmt(v.aliquota)}%${v.natura?' ('+v.natura+')':''}</td><td>${fmtIt(v.imposta)} €</td>`;
     tbody.appendChild(tr);
   });
 }
 
 /* ─────────────────────────────────────────────────────────────
-   CHECKBOX HANDLERS
+   BOLLO/RIVALSA
 ───────────────────────────────────────────────────────────── */
-
 function handleBolloChange() {
-  const si = el('bollo-si');
-  const no = el('bollo-no');
+  const si = el('bollo-si'), no = el('bollo-no');
   const dettaglio = el('bollo-dettaglio');
-
   if (si.checked) {
+    bolloManuallyDisabled = false;  /* utente attiva manualmente: reset flag */
     si.closest('.checkbox-label')?.classList.add('checked');
     no.closest('.checkbox-label')?.classList.remove('checked');
     if (dettaglio) dettaglio.style.display = 'block';
   } else {
+    bolloManuallyDisabled = true;   /* utente disattiva: rispettiamo la scelta */
     no.closest('.checkbox-label')?.classList.add('checked');
     si.closest('.checkbox-label')?.classList.remove('checked');
     if (dettaglio) dettaglio.style.display = 'none';
-    /* Rimuovi riga rivalsa bollo se bollo disattivato */
     removeBolloRivalsaRow();
-    /* Reset rivalsa checkbox a NO */
-    const rivSi = el('rivalsa-si');
-    const rivNo = el('rivalsa-no');
-    if (rivSi && rivNo) {
-      rivSi.checked = false;
-      rivNo.checked = true;
-      rivSi.closest('.checkbox-label')?.classList.remove('checked');
-      rivNo.closest('.checkbox-label')?.classList.add('checked');
-    }
+    const rivSi = el('rivalsa-si'), rivNo = el('rivalsa-no');
+    if (rivSi && rivNo) { rivSi.checked=false; rivNo.checked=true; rivSi.closest('.checkbox-label')?.classList.remove('checked'); rivNo.closest('.checkbox-label')?.classList.add('checked'); }
   }
   recalc();
 }
 
 function handleRivalsaBolloChange() {
-  const si = el('rivalsa-si');
-  const no = el('rivalsa-no');
-
+  const si = el('rivalsa-si'), no = el('rivalsa-no');
   if (si.checked) {
     si.closest('.checkbox-label')?.classList.add('checked');
     no.closest('.checkbox-label')?.classList.remove('checked');
@@ -336,15 +395,8 @@ function handleRivalsaBolloChange() {
   recalc();
 }
 
-/* ─────────────────────────────────────────────────────────────
-   BOLLO RIVALSA ROW (riga bloccata)
-───────────────────────────────────────────────────────────── */
-
-const BOLLO_ROW_ID = 'bollo-rivalsa-row';
-
 function addBolloRivalsaRow() {
   if (el(BOLLO_ROW_ID)) { updateBolloRivalsaRow(); return; }
-
   const amount = parseNum(el('importo-bollo')?.value) || 2.00;
   const tbody  = el('linee-body');
   const row    = document.createElement('tr');
@@ -370,14 +422,11 @@ function updateBolloRivalsaRow() {
 }
 
 function buildBolloRivalsaRowHTML(amount) {
-  const lineIndex = document.querySelectorAll('#linee-body tr').length + 1;
   return `
     <td class="td-nr nr-cell">🔒</td>
     <td class="td-desc">
       <span class="bollo-row-badge">⚑ AUTO</span>
-      <span style="font-size:.82rem;color:#5A3A00;font-weight:600;margin-left:6px">
-        Rivalsa Bollo Virtuale – Escluso art.15 D.P.R. 642/1972
-      </span>
+      <span style="font-size:.82rem;color:#5A3A00;font-weight:600;margin-left:6px">Bollo su Fattura Elettronica</span>
     </td>
     <td class="td-um"><span class="locked-cell">—</span></td>
     <td class="td-qty"><span class="locked-cell">1</span></td>
@@ -386,11 +435,10 @@ function buildBolloRivalsaRowHTML(amount) {
     <td class="td-iva"><span class="locked-cell">0%</span></td>
     <td class="td-natura"><span class="locked-cell" style="font-size:.75rem">N1 – Escluse art.15</span></td>
     <td class="td-tot td-calc">${fmtIt(amount)}</td>
-    <td class="td-del" title="Riga generata automaticamente dal bollo virtuale" style="color:#FDDBA0;text-align:center;font-size:1rem">🔒</td>
+    <td class="td-del" style="color:#FDDBA0;text-align:center;font-size:1rem">🔒</td>
   `;
 }
 
-/* Incapsula i dati della riga bollo-rivalsa per le funzioni di calcolo e XML */
 function getBolloRivalsaData() {
   if (!el(BOLLO_ROW_ID)) return null;
   const amount = parseNum(el('importo-bollo')?.value) || 2.00;
@@ -400,7 +448,6 @@ function getBolloRivalsaData() {
 /* ─────────────────────────────────────────────────────────────
    VALIDATION
 ───────────────────────────────────────────────────────────── */
-
 function validateForm() {
   const errors = [];
   const required = [
@@ -419,74 +466,44 @@ function validateForm() {
     ['pagamento-modalita',   'Modalità Pagamento'],
     ['pagamento-importo',    'Importo Pagamento'],
   ];
-
   required.forEach(([id, label]) => {
     const elem = el(id);
     if (!elem) return;
-    if (!elem.value.trim()) {
-      errors.push(`Il campo "${label}" è obbligatorio.`);
-      elem.classList.add('is-invalid');
-    } else {
-      elem.classList.remove('is-invalid');
-    }
+    if (!elem.value.trim()) { errors.push(`Il campo "${label}" è obbligatorio.`); elem.classList.add('is-invalid'); }
+    else elem.classList.remove('is-invalid');
   });
-
-  /* Almeno una riga */
-  if (activeLines.size === 0) {
-    errors.push('Inserire almeno una riga nella fattura.');
-  }
-
-  /* P.IVA deve essere 11 cifre */
-  const piva = val('cedente-piva').replace(/\s/g, '');
-  if (piva && !/^\d{11}$/.test(piva)) {
-    errors.push('La P.IVA del Cedente deve essere di 11 cifre numeriche.');
-  }
-
-  /* IBAN (se presente) */
-  const iban = val('pagamento-iban').replace(/\s/g, '');
-  if (iban && !/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/i.test(iban)) {
-    errors.push('L\'IBAN inserito non sembra valido.');
-  }
-
-  /* Controllo righe: descrizione obbligatoria */
+  if (activeLines.size === 0) errors.push('Inserire almeno una riga nella fattura.');
+  const piva = val('cedente-piva').replace(/\s/g,'');
+  if (piva && !/^\d{11}$/.test(piva)) errors.push('La P.IVA del Cedente deve essere di 11 cifre numeriche.');
+  const iban = val('pagamento-iban').replace(/\s/g,'');
+  if (iban && !/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/i.test(iban)) errors.push('L\'IBAN inserito non sembra valido.');
   let rowIndex = 0;
   document.querySelectorAll('#linee-body tr').forEach(tr => {
-    if (tr.id === BOLLO_ROW_ID) return;   // riga auto-generata: salta validazione
+    if (tr.id === BOLLO_ROW_ID) return;
     rowIndex++;
     const id   = tr.id.replace('line-', '');
     const desc = el(`desc-${id}`)?.value?.trim();
     if (!desc) errors.push(`Riga ${rowIndex}: la descrizione è obbligatoria.`);
     const iva = parseFloat(el(`iva-${id}`)?.value || 22);
-    if (iva === 0) {
-      const natura = el(`natura-${id}`)?.value;
-      if (!natura) errors.push(`Riga ${rowIndex}: selezionare la Natura per IVA 0%.`);
-    }
+    if (iva === 0 && !el(`natura-${id}`)?.value) errors.push(`Riga ${rowIndex}: selezionare la Natura per IVA 0%.`);
   });
-
-  if (errors.length > 0) {
-    errors.forEach(msg => toast(msg, 'error', 6000));
-    return false;
-  }
+  if (errors.length > 0) { errors.forEach(msg => toast(msg, 'error', 6000)); return false; }
   return true;
 }
 
 /* ─────────────────────────────────────────────────────────────
    XML GENERATION
 ───────────────────────────────────────────────────────────── */
-
 function generateXML() {
   if (!validateForm()) return;
-
   try {
     const xmlStr  = buildXML();
-    const piva    = val('cedente-piva').replace(/\s/g, '');
-    const numero  = val('fattura-numero').replace(/[^A-Za-z0-9_\-]/g, '_');
-    const prog    = numero.substring(0, 5).padStart(5, '0');
+    const piva    = val('cedente-piva').replace(/\s/g,'');
+    const prog    = (val('progressivo-invio') || computeProgressivo()).toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10);
     const filename = `IT${piva}_${prog}.xml`;
-
     downloadXML(xmlStr, filename);
     toast(`Fattura XML generata: ${filename}`, 'success', 5000);
-  } catch (err) {
+  } catch(err) {
     console.error(err);
     toast('Errore durante la generazione XML: ' + err.message, 'error', 8000);
   }
@@ -496,37 +513,29 @@ function downloadXML(xmlStr, filename) {
   const blob = new Blob([xmlStr], { type: 'application/xml;charset=UTF-8' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
 function buildXML() {
-  /* ── Raccolta dati ─────────────────────────────────────── */
-  const pivaIt      = val('cedente-piva').replace(/\s/g, '');
-  const cfCedente   = val('cedente-cf').replace(/\s/g, '');
-  const denomCed    = val('cedente-denominazione');
-  const regimeFisc  = val('cedente-regime');
-  const indCed      = val('cedente-indirizzo');
-  const capCed      = val('cedente-cap');
-  const comCed      = val('cedente-comune');
-  const provCed     = val('cedente-provincia');
-  const telCed      = val('cedente-tel');
-  const emailCed    = val('cedente-email');
+  const pivaIt     = val('cedente-piva').replace(/\s/g,'');
+  const cfCedente  = val('cedente-cf').replace(/\s/g,'');
+  const denomCed   = val('cedente-denominazione');
+  const regimeFisc = val('cedente-regime');
+  const indCed     = val('cedente-indirizzo');
+  const capCed     = val('cedente-cap');
+  const comCed     = val('cedente-comune');
+  const provCed    = val('cedente-provincia');
+  const telCed     = val('cedente-tel');
+  const emailCed   = val('cedente-email');
 
-  const sdiCode     = (val('cedente-sdi').toUpperCase() || '0000000').padEnd(7, '0').substring(0, 7) || '0000000';
-  const pecDest     = val('cedente-pec');
+  const sdiCode    = (val('cedente-sdi').toUpperCase() || '0000000').padEnd(7,'0').substring(0,7) || '0000000';
+  const pecDest    = val('cedente-pec');
+  const progressivo = (val('progressivo-invio') || computeProgressivo()).toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10) || 'BF00A00';
 
-  /* Progressivo invio: nr. fattura troncato a 10 chars alfanum */
-  const nrFatt      = val('fattura-numero');
-  const progressivo = nrFatt.replace(/[^A-Za-z0-9]/g, '').substring(0, 10) || '00001';
-
-  /* Cliente */
-  const pivaCliente = val('cliente-piva').replace(/\s/g, '');
-  const cfCliente   = val('cliente-cf').replace(/\s/g, '');
+  const pivaCliente = val('cliente-piva').replace(/\s/g,'');
+  const cfCliente   = val('cliente-cf').replace(/\s/g,'');
   const denomCli    = val('cliente-denominazione');
   const nomeCli     = val('cliente-nome');
   const cognomeCli  = val('cliente-cognome');
@@ -536,83 +545,57 @@ function buildXML() {
   const provCli     = val('cliente-provincia');
   const nazCli      = val('cliente-nazione') || 'IT';
 
-  /* Fattura */
-  const tipoDoc     = val('fattura-tipo');
-  const dataFatt    = val('fattura-data');  // YYYY-MM-DD
-  const causale     = val('fattura-causale');
-  const esigIVA     = val('fattura-esigibilita') || 'I';
+  const tipoDoc   = val('fattura-tipo');
+  const dataFatt  = val('fattura-data');
+  const nrFattEl  = el('fattura-numero');
+  const nrFatt    = nrFattEl?.value?.trim() || nrFattEl?.placeholder?.trim() || '';
+  const causale   = val('fattura-causale');
+  const esigIVA   = val('fattura-esigibilita') || 'I';
 
-  /* IVA map e totali */
-  const ivaMap      = buildIvaMap();
-  let totImponibile = 0;
-  let totIVA        = 0;
-  Object.values(ivaMap).forEach(v => {
-    totImponibile += v.imponibile;
-    totIVA        += v.imposta;
-  });
+  const ivaMap  = buildIvaMap();
+  let totImponibile = 0, totIVA = 0;
+  Object.values(ivaMap).forEach(v => { totImponibile += v.imponibile; totIVA += v.imposta; });
 
   const hasBolloSi   = el('bollo-si')?.checked;
   const hasRivalsaSi = el('rivalsa-si')?.checked;
   const bolloImporto = hasBolloSi ? parseNum(el('importo-bollo')?.value) : 0;
-  /* Il bollo incide sul totale direttamente solo se NON c'è rivalsa
-     (con rivalsa è già compreso come riga imponibile) */
   const bolloInTotale = hasBolloSi && !hasRivalsaSi ? bolloImporto : 0;
   const totFattura    = totImponibile + totIVA + bolloInTotale;
 
-  /* Pagamento */
-  const condPag     = val('pagamento-condizioni') || 'TP02';
-  const modalPag    = val('pagamento-modalita');
-  const dataSc      = val('pagamento-scadenza');
-  const impPag      = val('pagamento-importo') || fmt(totFattura);
-  const iban        = val('pagamento-iban').replace(/\s/g, '');
-  const bic         = val('pagamento-bic').replace(/\s/g, '');
+  const condPag  = val('pagamento-condizioni') || 'TP02';
+  const modalPag = val('pagamento-modalita');
+  const dataSc   = val('pagamento-scadenza');
+  const impPag   = val('pagamento-importo') || fmt(totFattura);
+  const iban     = val('pagamento-iban').replace(/\s/g,'');
+  const bic      = val('pagamento-bic').replace(/\s/g,'');
 
-  /* ── Costruzione XML ───────────────────────────────────── */
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<p:FatturaElettronica versione="FPR12" SistemaEmittente="BrioFE"\n`;
   xml += `  xmlns:p="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2"\n`;
   xml += `  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n`;
   xml += `  xsi:schemaLocation="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2 https://www.fatturapa.gov.it/export/fatturazione/sdi/fatturapa/v1.2/Schema_del_file_xml_FatturaPA_versione_1.2.xsd">\n`;
 
-  /* ── HEADER ─────────────────────────────────────────────── */
   xml += `  <FatturaElettronicaHeader>\n`;
-
-  /* DatiTrasmissione */
   xml += `    <DatiTrasmissione>\n`;
-  xml += `      <IdTrasmittente>\n`;
-  xml += `        <IdPaese>IT</IdPaese>\n`;
-  xml += `        <IdCodice>${escXml(pivaIt)}</IdCodice>\n`;
-  xml += `      </IdTrasmittente>\n`;
+  xml += `      <IdTrasmittente><IdPaese>IT</IdPaese><IdCodice>${escXml(pivaIt)}</IdCodice></IdTrasmittente>\n`;
   xml += `      <ProgressivoInvio>${escXml(progressivo)}</ProgressivoInvio>\n`;
   xml += `      <FormatoTrasmissione>FPR12</FormatoTrasmissione>\n`;
   xml += `      <CodiceDestinatario>${escXml(sdiCode)}</CodiceDestinatario>\n`;
-  if (pecDest) {
-    xml += `      <PECDestinatario>${escXml(pecDest)}</PECDestinatario>\n`;
-  }
+  if (pecDest) xml += `      <PECDestinatario>${escXml(pecDest)}</PECDestinatario>\n`;
   xml += `    </DatiTrasmissione>\n`;
 
-  /* CedentePrestatore */
   xml += `    <CedentePrestatore>\n`;
   xml += `      <DatiAnagrafici>\n`;
-  xml += `        <IdFiscaleIVA>\n`;
-  xml += `          <IdPaese>IT</IdPaese>\n`;
-  xml += `          <IdCodice>${escXml(pivaIt)}</IdCodice>\n`;
-  xml += `        </IdFiscaleIVA>\n`;
-  if (cfCedente) {
-    xml += `        <CodiceFiscale>${escXml(cfCedente)}</CodiceFiscale>\n`;
-  }
-  xml += `        <Anagrafica>\n`;
-  xml += `          <Denominazione>${escXml(denomCed)}</Denominazione>\n`;
-  xml += `        </Anagrafica>\n`;
+  xml += `        <IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>${escXml(pivaIt)}</IdCodice></IdFiscaleIVA>\n`;
+  if (cfCedente) xml += `        <CodiceFiscale>${escXml(cfCedente)}</CodiceFiscale>\n`;
+  xml += `        <Anagrafica><Denominazione>${escXml(denomCed)}</Denominazione></Anagrafica>\n`;
   xml += `        <RegimeFiscale>${escXml(regimeFisc)}</RegimeFiscale>\n`;
   xml += `      </DatiAnagrafici>\n`;
   xml += `      <Sede>\n`;
   xml += `        <Indirizzo>${escXml(indCed)}</Indirizzo>\n`;
   xml += `        <CAP>${escXml(capCed)}</CAP>\n`;
   xml += `        <Comune>${escXml(comCed)}</Comune>\n`;
-  if (provCed) {
-    xml += `        <Provincia>${escXml(provCed.toUpperCase().substring(0,2))}</Provincia>\n`;
-  }
+  if (provCed) xml += `        <Provincia>${escXml(provCed.toUpperCase().substring(0,2))}</Provincia>\n`;
   xml += `        <Nazione>IT</Nazione>\n`;
   xml += `      </Sede>\n`;
   if (telCed || emailCed) {
@@ -623,96 +606,65 @@ function buildXML() {
   }
   xml += `    </CedentePrestatore>\n`;
 
-  /* CessionarioCommittente */
   xml += `    <CessionarioCommittente>\n`;
   xml += `      <DatiAnagrafici>\n`;
   if (pivaCliente) {
-    xml += `        <IdFiscaleIVA>\n`;
-    xml += `          <IdPaese>${escXml(nazCli)}</IdPaese>\n`;
-    xml += `          <IdCodice>${escXml(pivaCliente)}</IdCodice>\n`;
-    xml += `        </IdFiscaleIVA>\n`;
+    xml += `        <IdFiscaleIVA><IdPaese>${escXml(nazCli)}</IdPaese><IdCodice>${escXml(pivaCliente)}</IdCodice></IdFiscaleIVA>\n`;
   }
-  if (cfCliente) {
-    xml += `        <CodiceFiscale>${escXml(cfCliente)}</CodiceFiscale>\n`;
-  }
+  if (cfCliente) xml += `        <CodiceFiscale>${escXml(cfCliente)}</CodiceFiscale>\n`;
   xml += `        <Anagrafica>\n`;
-  if (denomCli) {
-    xml += `          <Denominazione>${escXml(denomCli)}</Denominazione>\n`;
-  } else if (nomeCli || cognomeCli) {
-    xml += `          <Nome>${escXml(nomeCli)}</Nome>\n`;
-    xml += `          <Cognome>${escXml(cognomeCli)}</Cognome>\n`;
-  }
+  if (denomCli) xml += `          <Denominazione>${escXml(denomCli)}</Denominazione>\n`;
+  else if (nomeCli || cognomeCli) { xml += `          <Nome>${escXml(nomeCli)}</Nome>\n`; xml += `          <Cognome>${escXml(cognomeCli)}</Cognome>\n`; }
   xml += `        </Anagrafica>\n`;
   xml += `      </DatiAnagrafici>\n`;
   xml += `      <Sede>\n`;
   xml += `        <Indirizzo>${escXml(indCli)}</Indirizzo>\n`;
   xml += `        <CAP>${escXml(capCli)}</CAP>\n`;
   xml += `        <Comune>${escXml(comCli)}</Comune>\n`;
-  if (provCli) {
-    xml += `        <Provincia>${escXml(provCli.toUpperCase().substring(0,2))}</Provincia>\n`;
-  }
+  if (provCli) xml += `        <Provincia>${escXml(provCli.toUpperCase().substring(0,2))}</Provincia>\n`;
   xml += `        <Nazione>${escXml(nazCli)}</Nazione>\n`;
   xml += `      </Sede>\n`;
   xml += `    </CessionarioCommittente>\n`;
-
   xml += `  </FatturaElettronicaHeader>\n`;
 
-  /* ── BODY ───────────────────────────────────────────────── */
   xml += `  <FatturaElettronicaBody>\n`;
-
-  /* DatiGenerali */
   xml += `    <DatiGenerali>\n`;
   xml += `      <DatiGeneraliDocumento>\n`;
   xml += `        <TipoDocumento>${escXml(tipoDoc)}</TipoDocumento>\n`;
   xml += `        <Divisa>EUR</Divisa>\n`;
   xml += `        <Data>${escXml(dataFatt)}</Data>\n`;
   xml += `        <Numero>${escXml(nrFatt)}</Numero>\n`;
-
   if (hasBolloSi) {
     xml += `        <DatiBollo>\n`;
     xml += `          <BolloVirtuale>SI</BolloVirtuale>\n`;
-    if (bolloImporto > 0) {
-      xml += `          <ImportoBollo>${fmt(bolloImporto)}</ImportoBollo>\n`;
-    }
+    if (bolloImporto > 0) xml += `          <ImportoBollo>${fmt(bolloImporto)}</ImportoBollo>\n`;
     xml += `        </DatiBollo>\n`;
   }
-
   xml += `        <ImportoTotaleDocumento>${fmt(totFattura)}</ImportoTotaleDocumento>\n`;
-
   if (causale) {
-    /* Causale max 200 chars, può essere ripetuta */
-    const causaleParts = causale.match(/.{1,200}/g) || [];
-    causaleParts.forEach(part => {
-      xml += `        <Causale>${escXml(part)}</Causale>\n`;
-    });
+    (causale.match(/.{1,200}/g) || []).forEach(p => { xml += `        <Causale>${escXml(p)}</Causale>\n`; });
   }
-
   xml += `      </DatiGeneraliDocumento>\n`;
   xml += `    </DatiGenerali>\n`;
 
-  /* DatiBeniServizi */
   xml += `    <DatiBeniServizi>\n`;
-
   let lineNum = 0;
   document.querySelectorAll('#linee-body tr').forEach(tr => {
     lineNum++;
-
-    /* ── Riga Rivalsa Bollo (auto-generata, bloccata) ── */
     if (tr.id === BOLLO_ROW_ID) {
       const br = getBolloRivalsaData();
       if (!br) return;
       xml += `      <DettaglioLinee>\n`;
       xml += `        <NumeroLinea>${lineNum}</NumeroLinea>\n`;
-      xml += `        <Descrizione>Rivalsa Bollo Virtuale - Escluso art. 15 D.P.R. 642/1972</Descrizione>\n`;
+      xml += `        <Descrizione>Bollo su Fattura Elettronica</Descrizione>\n`;
       xml += `        <Quantita>1.00000000</Quantita>\n`;
-      xml += `        <PrezzoUnitario>${fmt(br.imponibile, 8)}</PrezzoUnitario>\n`;
-      xml += `        <PrezzoTotale>${fmt(br.imponibile, 8)}</PrezzoTotale>\n`;
+      xml += `        <PrezzoUnitario>${fmt(br.imponibile,8)}</PrezzoUnitario>\n`;
+      xml += `        <PrezzoTotale>${fmt(br.imponibile,8)}</PrezzoTotale>\n`;
       xml += `        <AliquotaIVA>0.00</AliquotaIVA>\n`;
       xml += `        <Natura>N1</Natura>\n`;
       xml += `      </DettaglioLinee>\n`;
       return;
     }
-
     const id    = tr.id.replace('line-', '');
     const desc  = el(`desc-${id}`)?.value?.trim() || '';
     const um    = el(`um-${id}`)?.value?.trim() || '';
@@ -721,121 +673,162 @@ function buildXML() {
     const disc  = parseNum(el(`disc-${id}`)?.value);
     const iva   = parseFloat(el(`iva-${id}`)?.value || 22);
     const natura = (iva === 0) ? (el(`natura-${id}`)?.value || '') : '';
-
-    const prezzoScontato = price * (1 - disc / 100);
-    const imponibile     = qty * prezzoScontato;
-
+    const imponibile = qty * price * (1 - disc/100);
     xml += `      <DettaglioLinee>\n`;
     xml += `        <NumeroLinea>${lineNum}</NumeroLinea>\n`;
     xml += `        <Descrizione>${escXml(desc)}</Descrizione>\n`;
-    if (qty !== 1 || um) {
-      xml += `        <Quantita>${fmt(qty, 8).replace(/\.?0+$/, '') || '1'}</Quantita>\n`;
-    }
-    if (um) {
-      xml += `        <UnitaMisura>${escXml(um)}</UnitaMisura>\n`;
-    }
-    xml += `        <PrezzoUnitario>${fmt(price, 8)}</PrezzoUnitario>\n`;
-    if (disc > 0) {
-      xml += `        <ScontoMaggiorazione>\n`;
-      xml += `          <Tipo>SC</Tipo>\n`;
-      xml += `          <Percentuale>${fmt(disc, 2)}</Percentuale>\n`;
-      xml += `        </ScontoMaggiorazione>\n`;
-    }
-    xml += `        <PrezzoTotale>${fmt(imponibile, 8)}</PrezzoTotale>\n`;
+    if (qty !== 1 || um) xml += `        <Quantita>${fmt(qty,8).replace(/\.?0+$/,'') || '1'}</Quantita>\n`;
+    if (um) xml += `        <UnitaMisura>${escXml(um)}</UnitaMisura>\n`;
+    xml += `        <PrezzoUnitario>${fmt(price,8)}</PrezzoUnitario>\n`;
+    if (disc > 0) { xml += `        <ScontoMaggiorazione><Tipo>SC</Tipo><Percentuale>${fmt(disc,2)}</Percentuale></ScontoMaggiorazione>\n`; }
+    xml += `        <PrezzoTotale>${fmt(imponibile,8)}</PrezzoTotale>\n`;
     xml += `        <AliquotaIVA>${fmt(iva)}</AliquotaIVA>\n`;
-    if (natura) {
-      xml += `        <Natura>${escXml(natura)}</Natura>\n`;
-    }
+    if (natura) xml += `        <Natura>${escXml(natura)}</Natura>\n`;
     xml += `      </DettaglioLinee>\n`;
   });
 
-  /* DatiRiepilogo (uno per ogni combinazione aliquota+natura) */
   Object.values(ivaMap).forEach(v => {
     xml += `      <DatiRiepilogo>\n`;
     xml += `        <AliquotaIVA>${fmt(v.aliquota)}</AliquotaIVA>\n`;
-    if (v.natura) {
-      xml += `        <Natura>${escXml(v.natura)}</Natura>\n`;
-    }
+    if (v.natura) xml += `        <Natura>${escXml(v.natura)}</Natura>\n`;
     xml += `        <ImponibileImporto>${fmt(v.imponibile)}</ImponibileImporto>\n`;
     xml += `        <Imposta>${fmt(v.imposta)}</Imposta>\n`;
-    if (v.aliquota > 0) {
-      xml += `        <EsigibilitaIVA>${escXml(esigIVA)}</EsigibilitaIVA>\n`;
-    }
+    if (v.aliquota > 0) xml += `        <EsigibilitaIVA>${escXml(esigIVA)}</EsigibilitaIVA>\n`;
     xml += `      </DatiRiepilogo>\n`;
   });
-
   xml += `    </DatiBeniServizi>\n`;
 
-  /* DatiPagamento */
   xml += `    <DatiPagamento>\n`;
   xml += `      <CondizioniPagamento>${escXml(condPag)}</CondizioniPagamento>\n`;
   xml += `      <DettaglioPagamento>\n`;
   xml += `        <ModalitaPagamento>${escXml(modalPag)}</ModalitaPagamento>\n`;
-  if (dataSc) {
-    xml += `        <DataScadenzaPagamento>${escXml(dataSc)}</DataScadenzaPagamento>\n`;
-  }
+  if (dataSc) xml += `        <DataScadenzaPagamento>${escXml(dataSc)}</DataScadenzaPagamento>\n`;
   xml += `        <ImportoPagamento>${fmt(parseNum(impPag))}</ImportoPagamento>\n`;
-  if (iban) {
-    xml += `        <IBAN>${escXml(iban)}</IBAN>\n`;
-  }
-  if (bic) {
-    xml += `        <BIC>${escXml(bic)}</BIC>\n`;
-  }
+  if (iban) xml += `        <IBAN>${escXml(iban)}</IBAN>\n`;
+  if (bic)  xml += `        <BIC>${escXml(bic)}</BIC>\n`;
   xml += `      </DettaglioPagamento>\n`;
   xml += `    </DatiPagamento>\n`;
 
   xml += `  </FatturaElettronicaBody>\n`;
   xml += `</p:FatturaElettronica>\n`;
-
   return xml;
 }
 
 /* ─────────────────────────────────────────────────────────────
-   IMPORT XML (placeholder per versioni future)
+   AUTO-BOLLO
+   Fonte: Bollo_Fattura_Elettronica_Guida_Tecnica
+   Attiva automaticamente il bollo virtuale quando le righe
+   in fattura soddisfano i criteri di obbligatorietà.
+   Nature che richiedono bollo (se IVA=0 e importo > €77,47):
+     N1, N2.1, N2.2, N3.5, N3.6, N4, N6.x (reverse charge senza IVA)
+   Nature escluse: N3.1, N3.2, N3.3, N3.4, N5, N7
+   Non si considera: Sez.5 (NB1/NB2/NB3) e Sez.6 (elenchi trimestrali)
 ───────────────────────────────────────────────────────────── */
+const NATURE_BOLLO_OBBLIGATORIO = ['N1', 'N2.1', 'N2.2', 'N3.5', 'N3.6', 'N4'];
+const SOGLIA_BOLLO = 77.47;
+
+function deveApplicareBollo(natura, importoNetto, aliquotaIva) {
+  if (importoNetto <= SOGLIA_BOLLO) return false;
+  if (aliquotaIva !== 0) return false;                  /* bollo solo per IVA=0 */
+  if (NATURE_BOLLO_OBBLIGATORIO.includes(natura)) return true;
+  if (natura && natura.startsWith('N6')) return true;   /* reverse charge senza IVA */
+  return false;
+}
+
+function checkAutoBollo() {
+  /* Se l'utente ha esplicitamente disattivato il bollo, rispettiamo la scelta */
+  if (bolloManuallyDisabled) return;
+  /* Se già attivo non fare nulla */
+  if (el('bollo-si')?.checked) return;
+
+  let bolloNecessario = false;
+
+  document.querySelectorAll('#linee-body tr').forEach(tr => {
+    if (tr.id === BOLLO_ROW_ID) return;
+    const id       = tr.id.replace('line-', '');
+    const qty      = parseNum(el(`qty-${id}`)?.value);
+    const price    = parseNum(el(`price-${id}`)?.value);
+    const disc     = parseNum(el(`disc-${id}`)?.value);
+    const iva      = parseFloat(el(`iva-${id}`)?.value || 22);
+    const natura   = el(`natura-${id}`)?.value || '';
+    const importo  = qty * price * (1 - disc / 100);
+
+    if (deveApplicareBollo(natura, importo, iva)) {
+      bolloNecessario = true;
+    }
+  });
+
+  if (bolloNecessario) {
+    const si  = el('bollo-si');
+    const no  = el('bollo-no');
+    const det = el('bollo-dettaglio');
+    if (!si || !no) return;
+    si.checked = true;
+    no.checked = false;
+    si.closest('.checkbox-label')?.classList.add('checked');
+    no.closest('.checkbox-label')?.classList.remove('checked');
+    if (det) det.style.display = 'block';
+    toast('Bollo virtuale attivato automaticamente: operazione soggetta a bollo (importo > €77,47). Puoi disattivarlo manualmente se non applicabile.', 'warning', 6000);
+  }
+}
+
 
 function importXML() {
   toast('La funzione di importazione XML sarà disponibile in una versione futura di BrioFE.', 'warning', 5000);
 }
 
 /* ─────────────────────────────────────────────────────────────
-   INITIALIZATION
+   INIT
 ───────────────────────────────────────────────────────────── */
-
 document.addEventListener('DOMContentLoaded', () => {
-  /* Imposta data odierna come default */
+  /* Data odierna come default */
   const today = new Date().toISOString().split('T')[0];
   const dataEl = el('fattura-data');
-  if (dataEl && !dataEl.value) dataEl.value = today;
+  if (dataEl && !dataEl.value) { dataEl.value = today; }
 
-  /* Aggiorna importo pagamento quando cambia il totale */
-  const observer = new MutationObserver(() => {
-    const totAm = el('totale-pagare-amount');
-    const impEl = el('pagamento-importo');
-    if (totAm && impEl && !impEl.dataset.manuallyEdited) {
-      const raw = totAm.textContent.replace(/[^\d,.]/g, '').replace(',', '.');
-      impEl.value = parseFloat(raw).toFixed(2);
-    }
-  });
-  const totEl = el('totale-pagare-amount');
-  if (totEl) observer.observe(totEl, { childList: true, characterData: true, subtree: true });
-
-  /* Flag se importo pagamento viene modificato manualmente */
-  const impEl = el('pagamento-importo');
-  if (impEl) {
-    impEl.addEventListener('input', () => { impEl.dataset.manuallyEdited = '1'; });
+  /* Numero fattura: solo placeholder (grigio, cancellato al primo input) */
+  const nrEl = el('fattura-numero');
+  if (nrEl) {
+    const annoCorrente = new Date().getFullYear();
+    nrEl.placeholder = `1/${annoCorrente}`;
+    /* Nessun value: l'utente vede il placeholder grigio e può scrivere subito */
   }
 
-  /* Aggiunge prima riga automaticamente */
+  /* Nav: aperto su desktop per default, chiuso su mobile */
+  const nav    = el('side-nav');
+  const body   = el('app-body');
+  const header = document.querySelector('.app-header');
+  if (isDesktop()) {
+    navOpen = true;
+    nav?.classList.remove('collapsed', 'open');
+    body?.classList.remove('nav-collapsed');
+    header?.classList.remove('nav-collapsed');
+  } else {
+    navOpen = false;
+    nav?.classList.remove('open', 'collapsed');
+    body?.classList.remove('nav-collapsed');
+    header?.classList.remove('nav-collapsed');
+    /* Mostra il disclaimer modal su mobile */
+    const mobileDisc = el('mobile-disclaimer');
+    if (mobileDisc) mobileDisc.style.display = 'flex';
+  }
+
+  /* Prima riga */
   addLine();
 
-  /* Rivalsa bollo: default NO (il bollo-dettaglio è hidden, rivalsa irrilevante) */
-  const rivNo = el('rivalsa-no');
-  if (rivNo) {
-    rivNo.checked = true;
-    rivNo.closest('.checkbox-label')?.classList.add('checked');
-  }
+  /* Calcola progressivo iniziale (usa il placeholder come sorgente) */
+  updateProgressivo();
 
-  console.log('%cBrioFE v0.01 alpha — Fatturazione Elettronica', 
-    'color:#009B8A;font-size:14px;font-weight:bold;');
+  /* Rivalsa bollo default NO */
+  const rivNo = el('rivalsa-no');
+  if (rivNo) { rivNo.checked = true; rivNo.closest('.checkbox-label')?.classList.add('checked'); }
+
+  /* Pagamento importo: flag se modificato manualmente */
+  const impEl = el('pagamento-importo');
+  if (impEl) impEl.addEventListener('input', () => { impEl.dataset.manuallyEdited = '1'; });
+
+  /* Nav attivo iniziale */
+  updateActiveNav();
+
+  console.log('%cBrioFE v0.02 alpha — Fatturazione Elettronica', 'color:#009B8A;font-size:14px;font-weight:bold;');
 });

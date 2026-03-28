@@ -345,10 +345,10 @@
 <!-- HERO -->
 <section class="hero">
   <div class="hero-content">
-    <div class="hero-badge">✦ v0.01 alpha &nbsp;·&nbsp; Open Source &nbsp;·&nbsp; Gratis</div>
+    <div class="hero-badge">✦ v0.02 alpha &nbsp;·&nbsp; Open Source &nbsp;·&nbsp; Gratis</div>
     <img src="img/logobriofe1.png" alt="BrioFE" class="hero-logo">
     <h1>Fatturazione Elettronica<br><span>semplice, libera, sicura</span></h1>
-    <p>Genera fatture elettroniche XML conformi al formato <strong style="color:white">SDI FPR12</strong> direttamente nel browser. Nessuna installazione, nessun server, nessun dato salvato.</p>
+    <p>Genera fatture elettroniche XML conformi al formato <strong style="color:white">SDI FPR12 v1.2.3</strong> direttamente nel browser. Nessuna installazione, nessun server, nessun dato salvato.</p>
     <div class="hero-actions">
       <a href="index.html" class="btn-hero-primary">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-14 9V3z"/></svg>
@@ -391,8 +391,13 @@
       </div>
       <div class="feature-card">
         <div class="feature-icon">☑</div>
-        <h3>Bollo e Rivalsa IVA</h3>
-        <p>Gestione del bollo virtuale (BolloVirtuale SI/NO con importo) e della rivalsa IVA con aggiornamento automatico del totale.</p>
+        <h3>Bollo Virtuale automatico</h3>
+        <p>Rilevamento automatico dell'obbligo di bollo in base al codice Natura (N1, N2.1, N2.2, N3.5, N3.6, N4, N6.x) e importo. Attivazione automatica con possibilità di override manuale.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔢</div>
+        <h3>Progressivo Invio BrioFE</h3>
+        <p>Generazione automatica del progressivo a 7 caratteri: <code>BF</code> + anno + lettera + ultime 2 cifre del numero fattura. Es: fattura 121/2026 → <strong>BF26B21</strong>. Modificabile manualmente.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">💳</div>
@@ -400,9 +405,14 @@
         <p>Condizioni, modalità (MP01–MP23), data scadenza, IBAN e BIC/SWIFT. Importo pagamento sincronizzato col totale fattura.</p>
       </div>
       <div class="feature-card">
+        <div class="feature-icon">🗂</div>
+        <h3>Menu di navigazione rapida</h3>
+        <p>Sidebar con accesso diretto alle 8 sezioni del form. Persistente su desktop (aperto di default), overlay su mobile. La voce attiva segue lo scroll automaticamente.</p>
+      </div>
+      <div class="feature-card">
         <div class="feature-icon">📥</div>
         <h3>Download XML conforme</h3>
-        <p>File XML UTF-8 conforme FPR12 v1.2.3, nome file nel formato corretto per SDI: <code>IT[PIVA]_[progressivo].xml</code>.</p>
+        <p>File XML UTF-8 conforme FPR12 v1.2.3, nome file nel formato SDI: <code>IT[PIVA]_[progressivo].xml</code> — es. <code>IT12345678901_BF26B21.xml</code>.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">🔐</div>
@@ -439,7 +449,7 @@
       </div>
       <div class="step">
         <h3>Genera e scarica XML</h3>
-        <p>Clicca su "Genera XML FPR12" per scaricare il file pronto da trasmettere via SDI.</p>
+        <p>Clicca su <strong>"Genera XML"</strong> per scaricare il file pronto da trasmettere via SDI.</p>
       </div>
     </div>
   </div>
@@ -497,8 +507,19 @@
         </tr>
         <tr>
           <td>Bollo virtuale</td>
-          <td>BolloVirtuale SI/NO con ImportoBollo</td>
+          <td>BolloVirtuale SI/NO con ImportoBollo e rilevamento automatico per operazioni soggette (N1, N2.1, N2.2, N3.5, N3.6, N4, N6.x con IVA=0 e importo &gt; €77,47)</td>
           <td><span class="tag tag-green">✓ Supportato</span></td>
+        </tr>
+        <tr>
+          <td>Progressivo Invio</td>
+          <td>
+            Formato proprietario BrioFE a 7 caratteri:<br>
+            <code style="font-family:'JetBrains Mono',monospace;font-size:.82em">BF</code> + anno 2 cifre +
+            lettera (A = nr 0–99, B = 100–199, C = 200–299 …) + ultime 2 cifre del numero fattura.<br>
+            <em>Es. fattura n. 121 del 2026 → <strong>BF26B21</strong></em><br>
+            Generato automaticamente, modificabile manualmente dalla sezione Trasmissione SDI.
+          </td>
+          <td><span class="tag tag-green">✓ v0.02</span></td>
         </tr>
         <tr>
           <td>Fattura PA (FPA12)</td>
@@ -506,9 +527,9 @@
           <td><span class="tag tag-orange">Roadmap v0.10</span></td>
         </tr>
         <tr>
-          <td>Fattura semplificata</td>
-          <td>VFSM10 — fatture semplificate</td>
-          <td><span class="tag tag-orange">Roadmap v0.10</span></td>
+          <td>Visualizzatore fatture XML</td>
+          <td>Lettura e visualizzazione di file XML FPR12 esistenti</td>
+          <td><span class="tag tag-orange">Roadmap v0.03</span></td>
         </tr>
         <tr>
           <td>Ritenuta d'acconto</td>
@@ -518,7 +539,7 @@
         <tr>
           <td>Importazione XML</td>
           <td>Lettura di fatture esistenti per modifica</td>
-          <td><span class="tag tag-blue">Roadmap v0.02</span></td>
+          <td><span class="tag tag-orange">Roadmap v0.03</span></td>
         </tr>
       </tbody>
     </table>
@@ -533,27 +554,38 @@
     <p class="section-sub">BrioFE è in sviluppo attivo. Ecco le prossime tappe del progetto.</p>
     <div class="roadmap-grid">
       <div class="roadmap-item done">
-        <div class="roadmap-version done">v0.01-alpha ✓ Ora</div>
+        <div class="roadmap-version done">v0.01-alpha ✓</div>
         <h3>Prima versione pubblica</h3>
         <ul>
           <li>Fattura ordinaria FPR12</li>
           <li>Calcolo automatico IVA</li>
-          <li>Bollo e Rivalsa</li>
+          <li>Bollo e Rivalsa bollo</li>
           <li>Download XML conforme</li>
           <li>Validazione form</li>
         </ul>
       </div>
-      <div class="roadmap-item next">
-        <div class="roadmap-version next">v0.02-alpha ⟶ Prossimo</div>
-        <h3>Importazione XML</h3>
+      <div class="roadmap-item done">
+        <div class="roadmap-version done">v0.02-alpha ✓ Ora</div>
+        <h3>Navigazione e automazioni</h3>
         <ul>
-          <li>Caricamento file XML esistente</li>
-          <li>Pre-compilazione automatica form</li>
-          <li>Modifica e ri-generazione</li>
+          <li>Menu navigazione rapida</li>
+          <li>Progressivo Invio automatico</li>
+          <li>Auto-attivazione bollo</li>
+          <li>Pulsante Genera PDF (stub)</li>
+          <li>Link Visualizzatore XML</li>
+        </ul>
+      </div>
+      <div class="roadmap-item next">
+        <div class="roadmap-version next">v0.03-alpha ⟶ Prossimo</div>
+        <h3>Visualizzatore & Importazione</h3>
+        <ul>
+          <li>Visualizzatore fatture XML FPR12</li>
+          <li>Visualizzatore messaggi SDI</li>
+          <li>Importazione XML per modifica</li>
         </ul>
       </div>
       <div class="roadmap-item planned">
-        <div class="roadmap-version planned">v0.03-alpha · Pianificato</div>
+        <div class="roadmap-version planned">v0.04-alpha · Pianificato</div>
         <h3>Professionisti</h3>
         <ul>
           <li>Ritenuta d'acconto (RT01, RT02)</li>
@@ -566,8 +598,7 @@
         <h3>Feature complete</h3>
         <ul>
           <li>Fattura PA (FPA12 + CIG/CUP)</li>
-          <li>Fattura semplificata (VFSM10)</li>
-          <li>Anteprima PDF</li>
+          <li>Genera PDF</li>
           <li>Salvataggio template cedente</li>
         </ul>
       </div>
@@ -587,7 +618,7 @@
 
 <!-- FOOTER -->
 <footer>
-  <strong>BrioFE</strong> v0.01 alpha — Programma di Fatturazione Elettronica Open Source &nbsp;|&nbsp;
+  <strong>BrioFE</strong> v0.02 alpha — Programma di Fatturazione Elettronica Open Source &nbsp;|&nbsp;
   Licenza <a href="LICENSE">GPL-3.0</a> &nbsp;|&nbsp;
   <a href="https://github.com/denvermotel/BrioFE" target="_blank" rel="noopener">GitHub</a> &nbsp;|&nbsp;
   Conforme alle specifiche <a href="https://www.fatturapa.gov.it" target="_blank" rel="noopener">SDI FPR12 v1.2.3</a>
