@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="BrioFE - Programma di Fatturazione Elettronica. Genera fatture elettroniche XML FPR12 conformi SDI.">
   <title>BrioFE — Fatturazione Elettronica</title>
-  <link rel="icon" type="image/png" href="img/logobriofe1.png">
+  <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="asset/style.css">
 </head>
 <body>
@@ -17,7 +17,7 @@
   <button class="nav-toggle" id="nav-toggle" onclick="toggleNav()" title="Menu sezioni">
     <span></span><span></span><span></span>
   </button>
-  <img src="img/logobriofe1.png" alt="BrioFE Logo" class="logo">
+  <img src="img/logo.png" alt="BrioFE Logo" class="logo">
   <div class="brand">
     <div class="brand-name">Brio<span>FE</span></div>
     <div class="brand-sub">Programma di Fatturazione Elettronica</div>
@@ -33,11 +33,11 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       Visualizzatore
     </a>
-    <a href="presentation.html" class="header-link" title="Pagina di presentazione">
+    <a href="info.html" class="header-link" title="Pagina di presentazione">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Presentazione
     </a>
-    <span class="header-version">v0.02 alpha</span>
+    <span class="header-version">v0.03 alpha</span>
   </div>
 </header>
 
@@ -65,6 +65,7 @@
     <li><a href="#sec-genera"     class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">⬆</span>Genera Fattura</a></li>
   </ul>
   <div class="side-nav-footer">
+    <div style="font-size:.68rem;font-weight:600;color:rgba(255,255,255,.35);letter-spacing:.4px;margin-bottom:8px;font-family:'JetBrains Mono',monospace">BrioFE v0.03 alpha</div>
     <a href="https://github.com/denvermotel/BrioFE" target="_blank" rel="noopener" class="side-nav-gh">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58v-2.04c-3.34.72-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.57C20.57 21.79 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
       GitHub
@@ -92,14 +93,24 @@
   <div class="main-content">
 
     <!-- TOP ACTIONS BAR -->
-    <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
-      <button type="button" class="btn-import-xml" onclick="importXML()" title="Funzione disponibile in versione futura">
+    <input type="file" id="file-import-full" accept=".xml" style="display:none">
+    <input type="file" id="file-import-header" accept=".xml" style="display:none">
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px;">
+      <button type="button" class="btn-import-xml btn-import-cedente" onclick="importCedenteClienteXML()" title="Importa dati cedente e/o cliente da una fattura XML esistente">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Importa cedente/cliente da XML
+      </button>
+      <button type="button" class="btn-import-xml" onclick="importXML()" title="Importa una fattura XML FPR12 esistente nel form">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
         Importa XML
-        <span style="font-size:.65rem;opacity:.7;font-weight:400">(prossimamente)</span>
       </button>
     </div>
 
@@ -282,7 +293,7 @@
             <label>Codice SDI Destinatario</label>
             <input type="text" id="cedente-sdi" value="0000000" maxlength="7"
                    style="text-transform:uppercase;font-family:'JetBrains Mono',monospace;letter-spacing:1px"
-                   placeholder="0000000" oninput="this.value=this.value.toUpperCase()">
+                   placeholder="0000000" oninput="this.value=this.value.toUpperCase();checkSdiLength(this)">
             <span class="field-hint">7 car. alfanumerici — usa <strong>0000000</strong> per privati o PEC</span>
           </div>
 
@@ -388,38 +399,10 @@
     </div>
 
     <!-- ────────────────────────────────────────────────────
-         TOTALI
-    ─────────────────────────────────────────────────────── -->
-    <div id="sec-totali" class="section-anchor"></div>
-    <div class="card">
-      <div class="card-header">
-        <div class="section-icon" style="background:var(--primary)">∑</div>
-        <h2>Totali</h2>
-      </div>
-      <div class="card-body">
-        <div class="totals-grid">
-          <div class="totals-box">
-            <div class="totals-row">
-              <span class="tot-label">Totale Imponibile</span>
-              <span class="tot-value" id="tot-imponibile">0,00 €</span>
-            </div>
-            <div class="totals-row">
-              <span class="tot-label">Totale IVA</span>
-              <span class="tot-value" id="tot-iva">0,00 €</span>
-            </div>
-            <div class="totals-row total-final">
-              <span class="tot-label">Totale Fattura</span>
-              <span class="tot-value" id="tot-fattura">0,00 €</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ────────────────────────────────────────────────────
-         RIEPILOGO IVA + BOLLO
+         RIEPILOGO IVA + TOTALI (affiancati)
     ─────────────────────────────────────────────────────── -->
     <div id="sec-riepilogo" class="section-anchor"></div>
+    <div id="sec-totali" class="section-anchor"></div>
     <div class="bottom-grid">
 
       <div class="card">
@@ -445,42 +428,77 @@
 
       <div class="card">
         <div class="card-header">
-          <div class="section-icon" style="background:#C0392B">☑</div>
-          <h2>Bollo Virtuale</h2>
+          <div class="section-icon" style="background:var(--primary)">∑</div>
+          <h2>Totali</h2>
         </div>
         <div class="card-body">
-          <div class="bollo-section">
-            <div class="field">
-              <label>Bollo Virtuale</label>
-              <div class="checkbox-group">
-                <label class="checkbox-label" id="label-bollo-si">
-                  <input type="checkbox" id="bollo-si" name="bollo" onchange="el('bollo-no').checked=false;handleBolloChange();"> Sì
-                </label>
-                <label class="checkbox-label checked" id="label-bollo-no">
-                  <input type="checkbox" id="bollo-no" name="bollo" checked onchange="el('bollo-si').checked=false;handleBolloChange();"> No
-                </label>
+          <div class="totals-grid">
+            <div class="totals-box">
+              <div class="totals-row">
+                <span class="tot-label">Totale Imponibile</span>
+                <span class="tot-value" id="tot-imponibile">0,00 €</span>
               </div>
-              <span class="field-hint">Bollo obbligatorio per fatture esenti/fuori campo IVA &gt; €77,47</span>
+              <div class="totals-row">
+                <span class="tot-label">Totale IVA</span>
+                <span class="tot-value" id="tot-iva">0,00 €</span>
+              </div>
+              <div class="totals-row total-final">
+                <span class="tot-label">Totale Fattura</span>
+                <span class="tot-value" id="tot-fattura">0,00 €</span>
+              </div>
             </div>
-            <div id="bollo-dettaglio" style="display:none">
-              <div id="bollo-importo-row" class="bollo-importo-row">
-                <div class="field" style="max-width:200px">
-                  <label>Importo Bollo (€)</label>
-                  <input type="number" id="importo-bollo" value="2.00" step="0.01" min="0" oninput="recalc();updateBolloRivalsaRow();">
-                </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         BOLLO VIRTUALE (larghezza piena)
+    ─────────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div class="section-icon" style="background:#C0392B">☑</div>
+        <h2>Bollo Virtuale</h2>
+      </div>
+      <div class="card-body">
+        <div class="bollo-section">
+          <button type="button" class="btn-add-row" onclick="verificaBolloManuale()">⚠️ Verifica Bollo</button>
+          <div id="bollo-check-result" class="bollo-check-result" style="display:none;margin-top:8px"></div>
+          <div class="field" style="margin-top:10px">
+            <label>Bollo Virtuale</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label" id="label-bollo-si">
+                <input type="checkbox" id="bollo-si" name="bollo" onchange="el('bollo-no').checked=false;handleBolloChange();"> Sì
+              </label>
+              <label class="checkbox-label checked" id="label-bollo-no">
+                <input type="checkbox" id="bollo-no" name="bollo" checked onchange="el('bollo-si').checked=false;handleBolloChange();"> No
+              </label>
+            </div>
+            <span class="field-hint">Bollo obbligatorio per fatture esenti/fuori campo IVA &gt; €77,47</span>
+            <div id="bollo-warning-obbligatorio" class="bollo-warning-box" style="display:none">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span><strong>Attenzione:</strong> il bollo virtuale è obbligatorio per questa fattura (importo &gt; €77,47 con operazione esente/fuori campo IVA) ma è stato disattivato manualmente. Verifica la correttezza prima di trasmettere al SDI.</span>
+            </div>
+          </div>
+          <div id="bollo-dettaglio" style="display:none">
+            <div id="bollo-importo-row" class="bollo-importo-row">
+              <div class="field" style="max-width:200px">
+                <label>Importo Bollo (€)</label>
+                <input type="number" id="importo-bollo" value="2.00" step="0.01" min="0" oninput="recalc();updateBolloRivalsaRow();">
               </div>
-              <div class="field" style="margin-top:10px">
-                <label>Rivalsa Bollo</label>
-                <div class="checkbox-group">
-                  <label class="checkbox-label" id="label-rivalsa-si">
-                    <input type="checkbox" id="rivalsa-si" name="rivalsa" onchange="el('rivalsa-no').checked=false;handleRivalsaBolloChange();"> Sì
-                  </label>
-                  <label class="checkbox-label checked" id="label-rivalsa-no">
-                    <input type="checkbox" id="rivalsa-no" name="rivalsa" checked onchange="el('rivalsa-si').checked=false;handleRivalsaBolloChange();"> No
-                  </label>
-                </div>
-                <span class="field-hint">Se <strong>Sì</strong>: riga automatica con importo bollo, IVA 0%, Natura <strong>N1</strong></span>
+            </div>
+            <div class="field" style="margin-top:10px">
+              <label>Rivalsa Bollo</label>
+              <div class="checkbox-group">
+                <label class="checkbox-label" id="label-rivalsa-si">
+                  <input type="checkbox" id="rivalsa-si" name="rivalsa" onchange="el('rivalsa-no').checked=false;handleRivalsaBolloChange();"> Sì
+                </label>
+                <label class="checkbox-label checked" id="label-rivalsa-no">
+                  <input type="checkbox" id="rivalsa-no" name="rivalsa" checked onchange="el('rivalsa-si').checked=false;handleRivalsaBolloChange();"> No
+                </label>
               </div>
+              <span class="field-hint">Se <strong>Sì</strong>: riga automatica con importo bollo, IVA 0%, Natura <strong>N1</strong></span>
             </div>
           </div>
         </div>
@@ -566,7 +584,11 @@
     <div id="sec-genera" class="section-anchor"></div>
     <div class="generate-bar">
       <div class="generate-info">
-        Nessun dato viene salvato o inviato. La fattura va poi trasmessa tramite il proprio intermediario SDI.
+        Nessun dato viene salvato o inviato. La fattura una volta scaricata va poi trasmessa al Sistema di Interscambio.
+        <a href="invio.html" class="header-link" style="margin-top:6px;display:inline-flex;color:var(--secondary);border-color:var(--secondary);background:rgba(27,59,111,.08)" title="Come inviare la fattura al SDI">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Come inviare la fattura al SDI
+        </a>
       </div>
       <div class="generate-actions">
         <button type="button" class="btn-generate-pdf" disabled title="Funzione disponibile in versione futura">
@@ -593,11 +615,39 @@
 </div><!-- app-body -->
 
 <footer class="app-footer">
-  <strong>BrioFE</strong> v0.02 alpha — Programma di Fatturazione Elettronica &nbsp;|&nbsp;
+  <strong>BrioFE</strong> v0.03 alpha — Programma di Fatturazione Elettronica &nbsp;|&nbsp;
   Conforme alle specifiche <a href="https://www.fatturapa.gov.it" target="_blank" rel="noopener">SDI FPR12 v1.2.3</a> dell'Agenzia delle Entrate &nbsp;|&nbsp;
   Nessun dato viene salvato o trasmesso a terzi &nbsp;|&nbsp;
   <a href="https://github.com/denvermotel/BrioFE" target="_blank" rel="noopener">GitHub</a>
 </footer>
+
+<!-- ═══════════════════════════════════════════════════════════
+     IMPORT MODAL
+════════════════════════════════════════════════════════════ -->
+<div id="import-modal-overlay" style="display:none">
+  <div id="import-modal">
+    <h3 id="import-modal-title"></h3>
+    <div id="import-modal-body"></div>
+    <div class="import-modal-actions">
+      <button type="button" class="import-modal-cancel" onclick="closeImportModal()">Annulla</button>
+      <button type="button" class="import-modal-confirm" id="import-modal-confirm-btn" onclick="confirmImport()">Importa</button>
+    </div>
+  </div>
+</div>
+
+<div id="bollo-warn-overlay" style="display:none">
+  <div id="bollo-warn-modal">
+    <h3 id="bollo-warn-title">⚠️ Bollo Virtuale non applicato</h3>
+    <div class="import-modal-warning">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span id="bollo-warn-body"></span>
+    </div>
+    <div class="import-modal-actions">
+      <button type="button" class="import-modal-cancel" onclick="closeBolloWarnModal()">Annulla</button>
+      <button type="button" class="import-modal-confirm" onclick="confirmBolloWarnModal()">OK — Genera comunque</button>
+    </div>
+  </div>
+</div>
 
 <div id="toast-container"></div>
 <script src="asset/app.js"></script>

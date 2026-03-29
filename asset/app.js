@@ -1,6 +1,6 @@
 /**
  * BrioFE - Fatturazione Elettronica
- * app.js v0.02 alpha
+ * app.js v0.03 alpha
  */
 
 'use strict';
@@ -27,6 +27,57 @@ function parseNum(s) {
 function fmt(n, decimals = 2) { return parseFloat(n || 0).toFixed(decimals); }
 function fmtIt(n, decimals = 2) {
   return parseFloat(n || 0).toLocaleString('it-IT', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+function countDecimals(s) {
+  const str = String(s ?? '').replace(',', '.');
+  const dot = str.indexOf('.');
+  if (dot < 0) return 0;
+  return str.length - dot - 1;
+}
+function priceInputFocus(id) {
+  const inp = el(`price-${id}`);
+  if (!inp) return;
+  if (parseNum(inp.value) === 0) {
+    inp.value = '';
+    inp.classList.remove('input-suggested');
+  }
+}
+function priceInputBlur(id) {
+  const inp = el(`price-${id}`);
+  if (!inp) return;
+  if (inp.value === '' || parseNum(inp.value) === 0) {
+    inp.value = '0';
+    inp.classList.add('input-suggested');
+  } else {
+    inp.classList.remove('input-suggested');
+  }
+  recalcDecimals();
+}
+
+function recalcDecimals() {
+  let priceDecimals = 2;
+  let qtyDecimals   = 0;
+  document.querySelectorAll('#linee-body tr').forEach(tr => {
+    if (tr.id === BOLLO_ROW_ID) return;
+    const id = tr.id.replace('line-', '');
+    const pv = el(`price-${id}`)?.value ?? '';
+    const qv = el(`qty-${id}`)?.value ?? '';
+    if (pv !== '') priceDecimals = Math.max(priceDecimals, countDecimals(pv));
+    if (qv !== '') qtyDecimals   = Math.max(qtyDecimals,   countDecimals(qv));
+  });
+  const active = document.activeElement;
+  document.querySelectorAll('#linee-body tr').forEach(tr => {
+    if (tr.id === BOLLO_ROW_ID) return;
+    const id = tr.id.replace('line-', '');
+    const priceEl = el(`price-${id}`);
+    const qtyEl   = el(`qty-${id}`);
+    if (priceEl && priceEl !== active)
+      priceEl.value = parseNum(priceEl.value).toFixed(priceDecimals);
+    if (qtyEl && qtyEl !== active) {
+      const v = parseNum(qtyEl.value);
+      qtyEl.value = qtyDecimals > 0 ? v.toFixed(qtyDecimals) : String(Math.round(v));
+    }
+  });
 }
 function val(id) { const e = document.getElementById(id); return e ? e.value.trim() : ''; }
 function el(id) { return document.getElementById(id); }
@@ -182,8 +233,9 @@ function addLine() {
   const tbody = el('linee-body');
   const row   = document.createElement('tr');
   row.id      = `line-${id}`;
+  row.draggable = true;
   row.innerHTML = `
-    <td class="td-nr nr-cell">${activeLines.size}</td>
+    <td class="td-nr nr-cell drag-handle" title="Trascina per riordinare">⠿</td>
     <td class="td-desc">
       <input type="text" id="desc-${id}" placeholder="Descrizione del bene o servizio..." oninput="recalc()" required>
     </td>
@@ -191,10 +243,10 @@ function addLine() {
       <input type="text" id="um-${id}" placeholder="pz">
     </td>
     <td class="td-qty">
-      <input type="number" id="qty-${id}" value="1" step="any" min="0" oninput="recalcLine(${id})" required>
+      <input type="number" id="qty-${id}" class="input-qty" value="1" step="any" min="0" oninput="recalcLine(${id})" onblur="recalcDecimals()" required>
     </td>
     <td class="td-price">
-      <input type="number" id="price-${id}" value="0.00" step="0.01" min="0" oninput="recalcLine(${id})" required>
+      <input type="number" id="price-${id}" class="input-suggested" value="0.00" step="0.01" min="0" onfocus="priceInputFocus(${id})" oninput="recalcLine(${id})" onblur="priceInputBlur(${id})" required>
     </td>
     <td class="td-disc">
       <input type="number" id="disc-${id}" value="" step="0.01" min="0" max="100" oninput="recalcLine(${id})" placeholder="0">
@@ -209,7 +261,7 @@ function addLine() {
       </select>
     </td>
     <td class="td-natura" id="natura-td-${id}">
-      <select id="natura-${id}" style="display:none">
+      <select id="natura-${id}" style="display:none" onchange="recalc()">
         <option value="N1">N1 – Escluse art.15</option>
         <option value="N2.1">N2.1 – Non soggette artt. 7-7septies</option>
         <option value="N2.2">N2.2 – Non soggette altri casi</option>
@@ -239,6 +291,7 @@ function addLine() {
     </td>
   `;
   tbody.appendChild(row);
+  _initRowDrag(row);
   renumberLines();
   recalcLine(id);
 }
@@ -275,7 +328,50 @@ function recalcLine(id) {
   const imponibile     = qty * prezzoScontato;
   const cell = el(`imponibile-${id}`);
   if (cell) cell.textContent = fmtIt(imponibile);
+  recalcDecimals();
   recalc();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DRAG & DROP RIGHE
+───────────────────────────────────────────────────────────── */
+let _dragSrc = null;
+
+function _initRowDrag(row) {
+  row.addEventListener('dragstart', (e) => {
+    _dragSrc = row;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', row.id);
+    setTimeout(() => row.classList.add('drag-dragging'), 0);
+  });
+  row.addEventListener('dragend', () => {
+    row.classList.remove('drag-dragging');
+    document.querySelectorAll('#linee-body tr').forEach(r => r.classList.remove('drag-over'));
+    _dragSrc = null;
+  });
+  row.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (row === _dragSrc || row.id === BOLLO_ROW_ID) return;
+    document.querySelectorAll('#linee-body tr').forEach(r => r.classList.remove('drag-over'));
+    row.classList.add('drag-over');
+  });
+  row.addEventListener('dragleave', () => {
+    row.classList.remove('drag-over');
+  });
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    row.classList.remove('drag-over');
+    if (!_dragSrc || _dragSrc === row || row.id === BOLLO_ROW_ID) return;
+    const tbody = el('linee-body');
+    const rows  = Array.from(tbody.querySelectorAll('tr'));
+    const srcIdx = rows.indexOf(_dragSrc);
+    const tgtIdx = rows.indexOf(row);
+    if (srcIdx < tgtIdx) tbody.insertBefore(_dragSrc, row.nextSibling);
+    else                 tbody.insertBefore(_dragSrc, row);
+    renumberLines();
+    recalc();
+  });
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -327,7 +423,6 @@ function recalc() {
 
   updateRiepilogoIVA(ivaMap);
   syncPagamentoImporto(totFattura);
-  checkAutoBollo();
 }
 
 function setCalc(id, value) {
@@ -369,6 +464,8 @@ function handleBolloChange() {
     si.closest('.checkbox-label')?.classList.add('checked');
     no.closest('.checkbox-label')?.classList.remove('checked');
     if (dettaglio) dettaglio.style.display = 'block';
+    const warn = el('bollo-warning-obbligatorio');
+    if (warn) warn.style.display = 'none';
   } else {
     bolloManuallyDisabled = true;   /* utente disattiva: rispettiamo la scelta */
     no.closest('.checkbox-label')?.classList.add('checked');
@@ -448,6 +545,11 @@ function getBolloRivalsaData() {
 /* ─────────────────────────────────────────────────────────────
    VALIDATION
 ───────────────────────────────────────────────────────────── */
+function checkSdiLength(input) {
+  if (!input) return;
+  const len = input.value.replace(/\s/g, '').length;
+  input.classList.toggle('is-invalid', len > 0 && len < 7);
+}
 function validateForm() {
   const errors = [];
   const required = [
@@ -475,6 +577,14 @@ function validateForm() {
   if (activeLines.size === 0) errors.push('Inserire almeno una riga nella fattura.');
   const piva = val('cedente-piva').replace(/\s/g,'');
   if (piva && !/^\d{11}$/.test(piva)) errors.push('La P.IVA del Cedente deve essere di 11 cifre numeriche.');
+  const sdi = val('cedente-sdi').replace(/\s/g,'');
+  checkSdiLength(el('cedente-sdi'));
+  if (sdi && !/^[A-Z0-9]{7}$/i.test(sdi)) {
+    errors.push('Il Codice SDI Destinatario deve essere esattamente 7 caratteri alfanumerici (es. 0000000).');
+    el('cedente-sdi')?.classList.add('is-invalid');
+  } else {
+    el('cedente-sdi')?.classList.remove('is-invalid');
+  }
   const iban = val('pagamento-iban').replace(/\s/g,'');
   if (iban && !/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/i.test(iban)) errors.push('L\'IBAN inserito non sembra valido.');
   let rowIndex = 0;
@@ -496,10 +606,43 @@ function validateForm() {
 ───────────────────────────────────────────────────────────── */
 function generateXML() {
   if (!validateForm()) return;
+
+  /* Controlla se il bollo sarebbe obbligatorio ma non è stato selezionato */
+  const tot         = calcolaTotaleQualificante();
+  const bolloNeeded = tot > SOGLIA_BOLLO;
+  const bolloActive = el('bollo-si')?.checked;
+
+  if (bolloNeeded && !bolloActive) {
+    const bodyEl = el('bollo-warn-body');
+    if (bodyEl) bodyEl.innerHTML =
+      `Questa fattura presenta operazioni soggette a bollo virtuale ` +
+      `(imponibile qualificante <strong>€${fmtIt(tot)}</strong> &gt; €77,47) ` +
+      `ma il bollo <strong>non è stato applicato</strong>.<br><br>` +
+      `Clicca <strong>OK — Genera comunque</strong> per procedere lo stesso, ` +
+      `oppure <strong>Annulla</strong> per tornare al form e applicare il bollo.`;
+    const overlay = el('bollo-warn-overlay');
+    if (overlay) overlay.style.display = 'flex';
+    return;
+  }
+
+  _doGenerateXML();
+}
+
+function closeBolloWarnModal() {
+  const overlay = el('bollo-warn-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function confirmBolloWarnModal() {
+  closeBolloWarnModal();
+  _doGenerateXML();
+}
+
+function _doGenerateXML() {
   try {
-    const xmlStr  = buildXML();
-    const piva    = val('cedente-piva').replace(/\s/g,'');
-    const prog    = (val('progressivo-invio') || computeProgressivo()).toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10);
+    const xmlStr   = buildXML();
+    const piva     = val('cedente-piva').replace(/\s/g,'');
+    const prog     = (val('progressivo-invio') || computeProgressivo()).toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10);
     const filename = `IT${piva}_${prog}.xml`;
     downloadXML(xmlStr, filename);
     toast(`Fattura XML generata: ${filename}`, 'success', 5000);
@@ -716,7 +859,6 @@ function buildXML() {
 
 /* ─────────────────────────────────────────────────────────────
    AUTO-BOLLO
-   Fonte: Bollo_Fattura_Elettronica_Guida_Tecnica
    Attiva automaticamente il bollo virtuale quando le righe
    in fattura soddisfano i criteri di obbligatorietà.
    Nature che richiedono bollo (se IVA=0 e importo > €77,47):
@@ -726,55 +868,464 @@ function buildXML() {
 ───────────────────────────────────────────────────────────── */
 const NATURE_BOLLO_OBBLIGATORIO = ['N1', 'N2.1', 'N2.2', 'N3.5', 'N3.6', 'N4'];
 const SOGLIA_BOLLO = 77.47;
+let prevBolloNecessario = false;
 
-function deveApplicareBollo(natura, importoNetto, aliquotaIva) {
-  if (importoNetto <= SOGLIA_BOLLO) return false;
-  if (aliquotaIva !== 0) return false;                  /* bollo solo per IVA=0 */
+/* Verifica se una riga (per natura+IVA) è soggetta a bollo.
+   La soglia di €77,47 si applica al TOTALE del documento, non per riga. */
+function rigaSoggetaBollo(natura, aliquotaIva) {
+  if (aliquotaIva !== 0) return false;
   if (NATURE_BOLLO_OBBLIGATORIO.includes(natura)) return true;
   if (natura && natura.startsWith('N6')) return true;   /* reverse charge senza IVA */
   return false;
 }
 
-function checkAutoBollo() {
-  /* Se l'utente ha esplicitamente disattivato il bollo, rispettiamo la scelta */
-  if (bolloManuallyDisabled) return;
-  /* Se già attivo non fare nulla */
-  if (el('bollo-si')?.checked) return;
-
-  let bolloNecessario = false;
-
+/* Calcola il totale imponibile delle righe soggette a bollo (IVA=0 + natura idonea).
+   Usato sia dal controllo automatico sia dalla verifica manuale. */
+function calcolaTotaleQualificante() {
+  let tot = 0;
   document.querySelectorAll('#linee-body tr').forEach(tr => {
     if (tr.id === BOLLO_ROW_ID) return;
-    const id       = tr.id.replace('line-', '');
-    const qty      = parseNum(el(`qty-${id}`)?.value);
-    const price    = parseNum(el(`price-${id}`)?.value);
-    const disc     = parseNum(el(`disc-${id}`)?.value);
-    const iva      = parseFloat(el(`iva-${id}`)?.value || 22);
-    const natura   = el(`natura-${id}`)?.value || '';
-    const importo  = qty * price * (1 - disc / 100);
-
-    if (deveApplicareBollo(natura, importo, iva)) {
-      bolloNecessario = true;
-    }
+    const id     = tr.id.replace('line-', '');
+    const qty    = parseNum(el(`qty-${id}`)?.value);
+    const price  = parseNum(el(`price-${id}`)?.value);
+    const disc   = parseNum(el(`disc-${id}`)?.value);
+    const iva    = parseFloat(el(`iva-${id}`)?.value || 22);
+    const natura = el(`natura-${id}`)?.value || '';
+    if (rigaSoggetaBollo(natura, iva)) tot += qty * price * (1 - disc / 100);
   });
+  return tot;
+}
 
-  if (bolloNecessario) {
-    const si  = el('bollo-si');
-    const no  = el('bollo-no');
-    const det = el('bollo-dettaglio');
-    if (!si || !no) return;
-    si.checked = true;
-    no.checked = false;
-    si.closest('.checkbox-label')?.classList.add('checked');
-    no.closest('.checkbox-label')?.classList.remove('checked');
-    if (det) det.style.display = 'block';
-    toast('Bollo virtuale attivato automaticamente: operazione soggetta a bollo (importo > €77,47). Puoi disattivarlo manualmente se non applicabile.', 'warning', 6000);
+function verificaBolloManuale() {
+  /* Verifica esplicita richiesta dall'utente: azzera i flag e riesegue il controllo */
+  bolloManuallyDisabled = false;
+  prevBolloNecessario   = false;
+  checkAutoBollo();
+
+  const tot        = calcolaTotaleQualificante();
+  const necessario = tot > SOGLIA_BOLLO;
+  const resultEl   = el('bollo-check-result');
+  if (!resultEl) return;
+
+  if (necessario) {
+    resultEl.className = 'bollo-check-result bollo-check-si';
+    resultEl.innerHTML = `<strong>Bollo obbligatorio</strong> — imponibile soggetto €${fmtIt(tot)} &gt; €77,47. Bollo impostato su <strong>Sì</strong>.`;
+  } else {
+    /* Bollo non dovuto: se è selezionato Sì, riportarlo su No */
+    if (el('bollo-si')?.checked) {
+      el('bollo-no').checked = true;
+      el('bollo-si').checked = false;
+      handleBolloChange();
+    }
+    resultEl.className = 'bollo-check-result bollo-check-no';
+    resultEl.innerHTML = `<strong>Bollo non dovuto</strong> — nessuna condizione di obbligo rilevata per questa fattura.`;
   }
+  resultEl.style.display = 'flex';
+}
+
+function checkAutoBollo() {
+  /* Soglia sul TOTALE del documento, non per singola riga.
+     Fonte: DPR 642/1972; D.M. 17.06.2014; Guida Tecnica Studio Genna mar.2026 */
+  const totaleQualificante = calcolaTotaleQualificante();
+  const bolloNecessario    = totaleQualificante > SOGLIA_BOLLO;
+
+  /* Quando le condizioni passano da non-necessario → necessario,
+     azzera il flag di disattivazione manuale così il bollo si riattiva. */
+  if (bolloNecessario && !prevBolloNecessario) {
+    bolloManuallyDisabled = false;
+  }
+  prevBolloNecessario = bolloNecessario;
+
+  const warningEl = el('bollo-warning-obbligatorio');
+
+  /* Utente ha disattivato manualmente: mostra/nascondi solo l'avviso */
+  if (bolloManuallyDisabled) {
+    if (warningEl) warningEl.style.display = bolloNecessario ? 'flex' : 'none';
+    return;
+  }
+
+  if (warningEl) warningEl.style.display = 'none';
+
+  if (!bolloNecessario || el('bollo-si')?.checked) return;
+
+  /* Attiva automaticamente bollo SI */
+  const si  = el('bollo-si');
+  const no  = el('bollo-no');
+  const det = el('bollo-dettaglio');
+  if (!si || !no) return;
+  si.checked = true;
+  no.checked = false;
+  si.closest('.checkbox-label')?.classList.add('checked');
+  no.closest('.checkbox-label')?.classList.remove('checked');
+  if (det) det.style.display = 'block';
+  toast('Bollo virtuale attivato automaticamente: operazione soggetta a bollo (totale > €77,47). Puoi disattivarlo manualmente se non applicabile.', 'warning', 6000);
 }
 
 
+/* ─────────────────────────────────────────────────────────────
+   IMPORT XML
+───────────────────────────────────────────────────────────── */
+let _pendingImportDoc  = null;
+let _pendingImportMode = null;
+
+/* Helper: testo del primo tag con quel nome nel nodo dato */
+function xmlText(node, tagName) {
+  if (!node) return '';
+  const found = node.getElementsByTagName(tagName);
+  return found.length > 0 ? found[0].textContent.trim() : '';
+}
+
+/* Apre il file picker, legge il file XML e chiama onLoaded(xmlDoc) */
+function _openXmlFile(inputId, onLoaded) {
+  const input = el(inputId);
+  if (!input) return;
+  input.value = '';
+  const handler = () => {
+    input.removeEventListener('change', handler);
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(e.target.result, 'application/xml');
+        if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+          toast('Il file XML non è valido o è corrotto.', 'error', 6000);
+          return;
+        }
+        onLoaded(xmlDoc);
+      } catch(err) {
+        toast('Errore nella lettura del file: ' + err.message, 'error', 6000);
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+  input.addEventListener('change', handler);
+  input.click();
+}
+
 function importXML() {
-  toast('La funzione di importazione XML sarà disponibile in una versione futura di BrioFE.', 'warning', 5000);
+  _openXmlFile('file-import-full', (xmlDoc) => {
+    _pendingImportDoc  = xmlDoc;
+    _pendingImportMode = 'full';
+    _showImportModal(
+      'Importa fattura XML',
+      `<div class="import-modal-warning">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span><strong>Attenzione:</strong> proseguendo, <strong>tutti i dati attualmente presenti nel form</strong> (cedente, cliente, righe fattura, dati di pagamento) verranno sovrascritti con i dati del file XML selezionato.<br><br>I campi non supportati da BrioFE in questa versione saranno ignorati.</span>
+      </div>`,
+      'Sovrascrivi e importa'
+    );
+  });
+}
+
+function importCedenteClienteXML() {
+  _openXmlFile('file-import-header', (xmlDoc) => {
+    _pendingImportDoc  = xmlDoc;
+    _pendingImportMode = 'entrambi';
+    _showImportModal(
+      'Importa dati cedente / cliente',
+      `<div class="import-modal-warning">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>I dati selezionati sovrascriveranno i campi corrispondenti nel form.<br><strong>Le righe fattura e i dati di pagamento non verranno modificati.</strong></span>
+      </div>
+      <div class="import-modal-checks">
+        <label class="import-check-label">
+          <input type="checkbox" id="import-check-cedente" checked>
+          <span><strong>Dati Cedente / Prestatore</strong> — denominazione, P.IVA, C.F., regime fiscale, sede</span>
+        </label>
+        <label class="import-check-label">
+          <input type="checkbox" id="import-check-cliente" checked>
+          <span><strong>Dati Cliente / Cessionario</strong> — denominazione, P.IVA, C.F., sede, Codice SDI / PEC</span>
+        </label>
+      </div>`,
+      'Importa selezionati'
+    );
+  });
+}
+
+function _showImportModal(title, bodyHtml, confirmLabel) {
+  const overlay    = el('import-modal-overlay');
+  const titleEl    = el('import-modal-title');
+  const bodyEl     = el('import-modal-body');
+  const confirmBtn = el('import-modal-confirm-btn');
+  if (!overlay || !titleEl || !bodyEl || !confirmBtn) return;
+  titleEl.textContent  = title;
+  bodyEl.innerHTML     = bodyHtml;
+  confirmBtn.textContent = confirmLabel;
+  overlay.style.display = 'flex';
+}
+
+function closeImportModal() {
+  const overlay = el('import-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+  _pendingImportDoc  = null;
+  _pendingImportMode = null;
+}
+
+function confirmImport() {
+  if (!_pendingImportDoc) { closeImportModal(); return; }
+  /* Se presenti le checkbox di selezione cedente/cliente, aggiorna modalità */
+  const checkCed = el('import-check-cedente');
+  const checkCli = el('import-check-cliente');
+  if (checkCed && checkCli) {
+    const wantCed = checkCed.checked;
+    const wantCli = checkCli.checked;
+    if (!wantCed && !wantCli) { toast('Selezionare almeno un\'opzione da importare.', 'warning'); return; }
+    if (wantCed && wantCli)   _pendingImportMode = 'entrambi';
+    else if (wantCed)         _pendingImportMode = 'cedente';
+    else                      _pendingImportMode = 'cliente';
+  }
+  try {
+    parseAndLoadXML(_pendingImportDoc, _pendingImportMode);
+    closeImportModal();
+  } catch(err) {
+    toast('Errore durante l\'importazione: ' + err.message, 'error', 8000);
+    console.error(err);
+    closeImportModal();
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Popola il form con i dati dell'XML FPR12.
+   mode: 'full' | 'cedente' | 'cliente' | 'entrambi'
+   - 'full'      → tutto (cedente, cliente, SDI, intestazione, righe, bollo, pagamento)
+   - 'cedente'   → solo dati cedente (denominazione, P.IVA, CF, regime, sede)
+   - 'cliente'   → solo dati cliente + codice SDI / PEC
+   - 'entrambi'  → cedente + cliente + SDI/PEC
+───────────────────────────────────────────────────────────── */
+function parseAndLoadXML(xmlDoc, mode) {
+  const setVal = (id, value) => {
+    const e = el(id);
+    if (e && value !== undefined && value !== null && value !== '') e.value = value;
+  };
+  const setSelect = (id, value) => {
+    const e = el(id);
+    if (!e || !value) return;
+    const opt = Array.from(e.options).find(o => o.value === value);
+    if (opt) e.value = opt.value;
+  };
+
+  const hasIgnored = [];
+
+  /* ── CEDENTE ──────────────────────────────────────────── */
+  if (mode === 'full' || mode === 'cedente' || mode === 'entrambi') {
+    const cedente = xmlDoc.getElementsByTagName('CedentePrestatore')[0];
+    if (cedente) {
+      setVal('cedente-denominazione', xmlText(cedente, 'Denominazione'));
+      const pivaCode = xmlText(cedente, 'IdCodice');
+      if (pivaCode) setVal('cedente-piva', pivaCode);
+      setVal('cedente-cf', xmlText(cedente, 'CodiceFiscale'));
+      setSelect('cedente-regime', xmlText(cedente, 'RegimeFiscale'));
+      const sede = cedente.getElementsByTagName('Sede')[0];
+      if (sede) {
+        setVal('cedente-indirizzo', xmlText(sede, 'Indirizzo'));
+        setVal('cedente-cap',       xmlText(sede, 'CAP'));
+        setVal('cedente-comune',    xmlText(sede, 'Comune'));
+        setVal('cedente-provincia', xmlText(sede, 'Provincia'));
+      }
+      const contatti = cedente.getElementsByTagName('Contatti')[0];
+      if (contatti) {
+        setVal('cedente-tel',   xmlText(contatti, 'Telefono'));
+        setVal('cedente-email', xmlText(contatti, 'Email'));
+      }
+    }
+  }
+
+  /* ── SDI / PEC ────────────────────────────────────────── */
+  if (mode === 'full' || mode === 'cliente' || mode === 'entrambi') {
+    const trasmissione = xmlDoc.getElementsByTagName('DatiTrasmissione')[0];
+    if (trasmissione) {
+      setVal('cedente-sdi', xmlText(trasmissione, 'CodiceDestinatario'));
+      setVal('cedente-pec', xmlText(trasmissione, 'PECDestinatario'));
+    }
+  }
+
+  /* ── CLIENTE ──────────────────────────────────────────── */
+  if (mode === 'full' || mode === 'cliente' || mode === 'entrambi') {
+    const cliente = xmlDoc.getElementsByTagName('CessionarioCommittente')[0];
+    if (cliente) {
+      const pivaCliEl = cliente.getElementsByTagName('IdFiscaleIVA')[0];
+      if (pivaCliEl) setVal('cliente-piva', xmlText(pivaCliEl, 'IdCodice'));
+      setVal('cliente-cf', xmlText(cliente, 'CodiceFiscale'));
+      const anagrafica = cliente.getElementsByTagName('Anagrafica')[0];
+      if (anagrafica) {
+        setVal('cliente-denominazione', xmlText(anagrafica, 'Denominazione'));
+        setVal('cliente-nome',          xmlText(anagrafica, 'Nome'));
+        setVal('cliente-cognome',       xmlText(anagrafica, 'Cognome'));
+      }
+      const sede = cliente.getElementsByTagName('Sede')[0];
+      if (sede) {
+        setVal('cliente-indirizzo', xmlText(sede, 'Indirizzo'));
+        setVal('cliente-cap',       xmlText(sede, 'CAP'));
+        setVal('cliente-comune',    xmlText(sede, 'Comune'));
+        setVal('cliente-provincia', xmlText(sede, 'Provincia'));
+        const nazione = xmlText(sede, 'Nazione');
+        if (nazione) {
+          const nazSel = el('cliente-nazione');
+          if (nazSel) {
+            const opt = Array.from(nazSel.options).find(o => o.value === nazione);
+            if (opt) nazSel.value = opt.value;
+          }
+        }
+      }
+    }
+  }
+
+  /* Modalità solo intestazione: fermiamo qui */
+  if (mode !== 'full') {
+    toast('Dati importati correttamente.', 'success', 4000);
+    return;
+  }
+
+  /* ── INTESTAZIONE FATTURA ──────────────────────────────── */
+  const datiGen = xmlDoc.getElementsByTagName('DatiGeneraliDocumento')[0];
+  if (datiGen) {
+    setSelect('fattura-tipo', xmlText(datiGen, 'TipoDocumento'));
+    const dataRaw = xmlText(datiGen, 'Data');
+    if (dataRaw) setVal('fattura-data', dataRaw);
+    const numero = xmlText(datiGen, 'Numero');
+    if (numero) {
+      const nrEl = el('fattura-numero');
+      if (nrEl) { nrEl.value = numero; nrEl.classList.remove('input-suggested'); }
+    }
+    /* Causale: può essere multipla, si uniscono */
+    const causali = datiGen.getElementsByTagName('Causale');
+    if (causali.length > 0) {
+      setVal('fattura-causale', Array.from(causali).map(c => c.textContent.trim()).join(' '));
+    }
+    /* Bollo */
+    const datiBollo = datiGen.getElementsByTagName('DatiBollo')[0];
+    const bolloSI = datiBollo && xmlText(datiBollo, 'BolloVirtuale') === 'SI';
+    const bSi = el('bollo-si'), bNo = el('bollo-no');
+    if (bSi && bNo) {
+      bSi.checked = bolloSI; bNo.checked = !bolloSI;
+      bSi.closest('.checkbox-label')?.classList.toggle('checked', bolloSI);
+      bNo.closest('.checkbox-label')?.classList.toggle('checked', !bolloSI);
+      const det = el('bollo-dettaglio');
+      if (det) det.style.display = bolloSI ? 'block' : 'none';
+      if (bolloSI) {
+        const importo = xmlText(datiBollo, 'ImportoBollo');
+        if (importo) setVal('importo-bollo', importo);
+        bolloManuallyDisabled = false;
+      } else {
+        bolloManuallyDisabled = true;
+      }
+    }
+  }
+
+  /* EsigibilitàIVA — primo valore trovato nei DatiRiepilogo */
+  const esigEls = xmlDoc.getElementsByTagName('EsigibilitaIVA');
+  if (esigEls.length > 0) setSelect('fattura-esigibilita', esigEls[0].textContent.trim());
+
+  /* ── RIGHE FATTURA ────────────────────────────────────── */
+  /* Rimuove tutte le righe esistenti */
+  const tbody = el('linee-body');
+  if (tbody) {
+    Array.from(tbody.querySelectorAll('tr')).forEach(r => {
+      if (r.id !== BOLLO_ROW_ID) r.remove();
+    });
+    removeBolloRivalsaRow();
+    activeLines.clear();
+    lineCounter = 0;
+  }
+
+  let importedLines = 0;
+  let hasRivalsaRow = false;
+
+  Array.from(xmlDoc.getElementsByTagName('DettaglioLinee')).forEach(linea => {
+    const desc   = xmlText(linea, 'Descrizione');
+    const natura = xmlText(linea, 'Natura');
+    /* Salta la riga rivalsa bollo (generata automaticamente da BrioFE) */
+    if (desc && desc.toLowerCase().includes('bollo') && natura === 'N1') {
+      hasRivalsaRow = true;
+      return;
+    }
+
+    addLine();
+    const lid = lineCounter;
+
+    const descEl  = el(`desc-${lid}`);
+    const umEl    = el(`um-${lid}`);
+    const qtyEl   = el(`qty-${lid}`);
+    const priceEl = el(`price-${lid}`);
+    const discEl  = el(`disc-${lid}`);
+    const ivaEl   = el(`iva-${lid}`);
+    const natEl   = el(`natura-${lid}`);
+
+    if (descEl)  descEl.value  = desc;
+    if (umEl)    umEl.value    = xmlText(linea, 'UnitaMisura');
+    if (qtyEl)   qtyEl.value   = xmlText(linea, 'Quantita') || '1';
+    if (priceEl) priceEl.value = xmlText(linea, 'PrezzoUnitario') || '0';
+
+    const scontoEl = linea.getElementsByTagName('ScontoMaggiorazione')[0];
+    if (scontoEl && xmlText(scontoEl, 'Tipo') === 'SC' && discEl) {
+      discEl.value = xmlText(scontoEl, 'Percentuale') || '';
+    }
+
+    const aliquota = xmlText(linea, 'AliquotaIVA');
+    if (aliquota !== '' && ivaEl) {
+      const ivaNum = parseFloat(aliquota);
+      const matchOpt = Array.from(ivaEl.options).find(o => Math.abs(parseFloat(o.value) - ivaNum) < 0.001);
+      if (matchOpt) ivaEl.value = matchOpt.value;
+      toggleNatura(lid);
+    }
+
+    if (natura && natEl) {
+      const matchNat = Array.from(natEl.options).find(o => o.value === natura);
+      if (matchNat) {
+        natEl.value = matchNat.value;
+      } else if (natura) {
+        hasIgnored.push(`Natura "${natura}"`);
+      }
+    }
+
+    recalcLine(lid);
+    importedLines++;
+  });
+
+  /* Rivalsa bollo: se presente nell'XML, attiva il checkbox */
+  if (hasRivalsaRow && el('bollo-si')?.checked) {
+    const rivSi = el('rivalsa-si'), rivNo = el('rivalsa-no');
+    if (rivSi && rivNo) {
+      rivSi.checked = true; rivNo.checked = false;
+      rivSi.closest('.checkbox-label')?.classList.add('checked');
+      rivNo.closest('.checkbox-label')?.classList.remove('checked');
+      addBolloRivalsaRow();
+    }
+  }
+
+  /* ── PAGAMENTO ────────────────────────────────────────── */
+  const condPagEl = xmlDoc.getElementsByTagName('CondizioniPagamento')[0];
+  if (condPagEl) setSelect('pagamento-condizioni', condPagEl.textContent.trim());
+  const detPag = xmlDoc.getElementsByTagName('DettaglioPagamento')[0];
+  if (detPag) {
+    setSelect('pagamento-modalita', xmlText(detPag, 'ModalitaPagamento'));
+    const dataSc = xmlText(detPag, 'DataScadenzaPagamento');
+    if (dataSc) setVal('pagamento-scadenza', dataSc);
+    const impPag = xmlText(detPag, 'ImportoPagamento');
+    if (impPag) {
+      const impEl = el('pagamento-importo');
+      if (impEl) { impEl.value = impPag; impEl.dataset.manuallyEdited = '1'; }
+    }
+    setVal('pagamento-iban', xmlText(detPag, 'IBAN'));
+    setVal('pagamento-bic',  xmlText(detPag, 'BIC'));
+  }
+
+  /* Segnala campi non supportati trovati nell'XML */
+  if (xmlDoc.getElementsByTagName('DatiRitenuta').length > 0)
+    hasIgnored.push('DatiRitenuta (ritenuta d\'acconto — roadmap v0.04)');
+  if (xmlDoc.getElementsByTagName('DatiCassaPrevidenziale').length > 0)
+    hasIgnored.push('DatiCassaPrevidenziale (roadmap v0.04)');
+
+  recalc();
+  updateProgressivo();
+
+  const lineWord = importedLines === 1 ? 'riga' : 'righe';
+  toast(`Fattura importata: ${importedLines} ${lineWord} caricate.`, 'success', 4000);
+  if (hasIgnored.length > 0) {
+    toast(`Campi ignorati (non supportati): ${hasIgnored.join(', ')}.`, 'warning', 7000);
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -830,5 +1381,5 @@ document.addEventListener('DOMContentLoaded', () => {
   /* Nav attivo iniziale */
   updateActiveNav();
 
-  console.log('%cBrioFE v0.02 alpha — Fatturazione Elettronica', 'color:#009B8A;font-size:14px;font-weight:bold;');
+  console.log('%cBrioFE v0.03 alpha — Fatturazione Elettronica', 'color:#009B8A;font-size:14px;font-weight:bold;');
 });

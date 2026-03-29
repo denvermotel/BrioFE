@@ -1,17 +1,17 @@
 # BrioFE — Programma di Fatturazione Elettronica
 
-![BrioFE Logo](img/logobriofe1.png)
+![BrioFE Logo](img/logo.png)
 
 > Genera fatture elettroniche XML conformi al formato SDI FPR12 v1.2.3 dell'Agenzia delle Entrate italiana — direttamente nel browser, senza installazioni, senza server, senza memorizzazione di dati.
 
-[![Versione](https://img.shields.io/badge/versione-0.02--alpha-orange)](CHANGELOG.md)
+[![Versione](https://img.shields.io/badge/versione-0.03--alpha-orange)](CHANGELOG.md)
 [![Licenza](https://img.shields.io/badge/licenza-GPL--3.0-green)](LICENSE)
 [![Standard](https://img.shields.io/badge/standard-FPR12%20v1.2.3-blue)](https://www.fatturapa.gov.it)
 [![HTML5](https://img.shields.io/badge/HTML5-pure-red)](https://developer.mozilla.org/en-US/docs/Web/HTML)
 
 ---
 
-## ✨ Funzionalità (v0.02 alpha)
+## ✨ Funzionalità (v0.03 alpha)
 
 - 📋 **Compilazione guidata** di tutti i campi della fattura ordinaria (FPR12 v1.2.3)
 - 🧮 **Calcolo automatico** di imponibili, IVA, totali e riepilogo aliquote in tempo reale
@@ -22,6 +22,8 @@
 - ✅ **Validazione** dei campi obbligatori prima della generazione
 - 🔐 **Privacy by design**: nessun dato viene salvato o trasmesso
 - 📱 **Responsive**: funziona su desktop, tablet e mobile
+- 📂 **Importazione XML completa**: carica una fattura FPR12 esistente nel form (tutti i campi supportati)
+- 👤 **Importazione cedente/cliente da XML**: importa selettivamente i dati anagrafici senza toccare le righe
 - 🆓 **Zero dipendenze server**: funziona aprendo direttamente il file HTML
 
 ---
@@ -66,13 +68,13 @@ Poi apri `http://localhost:8080` nel browser.
 ```
 BrioFE/
 ├── index.html              # Applicazione principale
-├── presentation.html       # Pagina di presentazione del progetto
+├── info.html               # Pagina di presentazione del progetto
 ├── visualizzatore.html     # Visualizzatore fatture XML (placeholder)
 ├── LICENSE                 # Licenza GPL-3.0
 ├── README.md               # Questo file
 ├── CHANGELOG.md            # Storico delle modifiche
 ├── img/
-│   └── logobriofe1.png     # Logo BrioFE
+│   └── logo.png     # Logo BrioFE
 └── asset/
     ├── style.css           # Foglio di stile principale
     └── app.js              # Logica applicativa (generazione XML)
@@ -146,13 +148,12 @@ Supportate: MP01 (contanti), MP05 (bonifico), MP08 (carta), MP12 (RIBA), MP19–
 
 ---
 
-## ⚠️ Limitazioni versione 0.02-alpha
+## ⚠️ Limitazioni versione 0.03-alpha
 
 - ❌ Non supporta fatture di **professionisti** con ritenuta d'acconto
 - ❌ Non supporta la **cassa previdenziale** (es. INPS gestione separata)
 - ❌ Non supporta la **fattura PA** (FPA12) con CIG/CUP
-- ❌ L'**importazione XML** non è ancora disponibile (roadmap v0.03)
-- ❌ Il **visualizzatore fatture XML e messaggi SDI** non è ancora disponibile (roadmap v0.03)
+- ❌ Il **visualizzatore fatture XML e messaggi SDI** non è ancora disponibile (roadmap futura)
 - ❌ La **generazione PDF** non è ancora disponibile (roadmap v0.05)
 - ❌ Non gestisce **allegati** nella fattura
 

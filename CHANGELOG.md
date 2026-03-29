@@ -6,6 +6,35 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [0.03-alpha] - 2026-03-28
+
+### Aggiunto
+- **Layout Riepilogo IVA + Totali affiancati**: le due sezioni sono ora presentate
+  side-by-side (50% ciascuna) per una visualizzazione più compatta e leggibile.
+- **Avviso bollo obbligatorio disattivato**: quando il bollo virtuale è obbligatorio
+  (importo > €77,47, IVA=0%, Natura in N1/N2.1/N2.2/N3.5/N3.6/N4/N6.x) ma l'utente
+  ha selezionato "No" manualmente, appare un riquadro di avviso giallo nella sezione
+  Bollo Virtuale. L'avviso scompare non appena si riattiva il bollo o le condizioni
+  di obbligatorietà non sono più soddisfatte.
+- **Pulsante "Importa cedente/cliente da XML"**: importa selettivamente i dati del
+  cedente e/o del cliente (incluso Codice SDI / PEC) da una fattura FPR12 esistente.
+  Un modale permette di scegliere cosa importare. Le righe fattura e i dati di
+  pagamento non vengono modificati.
+- **Importazione XML completa**: il pulsante "Importa XML" ora carica tutti i campi
+  supportati da una fattura FPR12 esistente (cedente, cliente, SDI/PEC, intestazione,
+  righe, bollo, pagamento). Un avviso di sovrascrittura appare prima di procedere.
+  I campi non supportati (DatiRitenuta, DatiCassaPrevidenziale, ecc.) sono ignorati
+  con notifica. La riga rivalsa bollo generata da BrioFE viene riconosciuta e
+  ricreata automaticamente attivando il checkbox Rivalsa.
+
+### Modificato
+- **Pulsante "Importa XML"**: non più disabilitato (stub), ora funzionante con
+  apertura file picker e parsing DOMParser nativo.
+- **Sezione Bollo Virtuale**: spostata fuori dal `bottom-grid`, ora occupa tutta la
+  larghezza della pagina sotto il riquadro Riepilogo IVA + Totali.
+
+---
+
 ## [0.02-alpha] - 2026-03-28
 
 ### Aggiunto
@@ -88,6 +117,11 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 ### [0.10-beta] — Feature complete
 - Fattura PA (FPA12) con CIG/CUP
 - Salvataggio configurazione cedente in localStorage
+
+### [0.20-beta] — Visualizzatore NSO
+- Visualizzatore ordini NSO (XML PEPPOL BIS 3)
+- Lettura notifiche e risposte NSO
+- Supporto messaggi SDI correlati
 
 ### [1.0.0] — Prima versione stabile
 - Test con validatore SDI ufficiale

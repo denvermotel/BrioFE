@@ -1,6 +1,6 @@
 /* ============================================================
    BrioFE - Fatturazione Elettronica
-   style.css v0.02 alpha
+   style.css v0.03 alpha
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -340,7 +340,7 @@ body {
 }
 
 /* ── Layout ─────────────────────────────────────────────────── */
-.page-wrapper { max-width: 1280px; margin: 0 auto; padding: 0 16px 60px; }
+.page-wrapper { max-width: 1280px; margin: 0 auto; padding: 16px 16px 60px; }
 
 /* ── Cards / Sections ──────────────────────────────────────── */
 .card {
@@ -380,12 +380,19 @@ body {
 .btn-import-xml {
   display: inline-flex; align-items: center; gap: 8px;
   background: rgba(27,59,111,.08);
-  border: 1.5px dashed var(--secondary);
+  border: 1.5px solid var(--secondary);
   color: var(--secondary);
   font-family: 'Outfit', sans-serif; font-size: .82rem; font-weight: 600;
   padding: 8px 14px; border-radius: var(--radius);
-  cursor: not-allowed; opacity: .65; transition: var(--transition);
+  cursor: pointer; transition: var(--transition);
 }
+.btn-import-xml:hover {
+  background: rgba(27,59,111,.16);
+  border-color: var(--secondary);
+  box-shadow: 0 2px 8px rgba(27,59,111,.15);
+  transform: translateY(-1px);
+}
+.btn-import-xml:active { transform: translateY(0); }
 
 /* ── Form Grid ──────────────────────────────────────────────── */
 .form-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px 12px; }
@@ -411,8 +418,10 @@ input[type="tel"], select, textarea {
   background: #FFFFFF; border: 1.5px solid var(--border); border-radius: var(--radius);
   font-family: 'Outfit', sans-serif; font-size: .875rem; color: var(--text);
   transition: border-color var(--transition), box-shadow var(--transition);
-  outline: none; appearance: none;
+  outline: none; appearance: none; -webkit-appearance: none; -moz-appearance: textfield;
 }
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="text"]:focus, input[type="number"]:focus, input[type="email"]:focus,
 input[type="date"]:focus, input[type="tel"]:focus, select:focus, textarea:focus {
   border-color: var(--border-focus);
@@ -443,8 +452,11 @@ select {
 .input-suggested {
   color: #9AAAB8 !important;
   font-style: italic;
+  background: #F4F6F8 !important;
 }
-.input-suggested:focus { color: var(--text) !important; font-style: normal; }
+.input-suggested:focus { color: var(--text) !important; font-style: normal; background: #FFFFFF !important; }
+/* number inputs non supportano font-style: italic — override */
+input[type="number"].input-suggested { font-style: normal; }
 
 /* ── Progressivo row (input + checkbox inline) ──────────── */
 .progressivo-row {
@@ -479,7 +491,7 @@ select {
 .td-nr { width: 32px; text-align: center; font-weight: 600; color: var(--text-muted); }
 .td-desc { min-width: 180px; }
 .td-um { width: 55px; }
-.td-qty { width: 70px; }
+.td-qty { width: 76px; }
 .td-price { width: 100px; }
 .td-disc { width: 60px; }
 .td-iva { width: 75px; }
@@ -487,6 +499,23 @@ select {
 .td-tot { width: 110px; }
 .td-del { width: 36px; text-align: center; }
 .td-calc { background: var(--bg-calc); color: var(--text-calc); font-family: 'JetBrains Mono', monospace; font-weight: 600; text-align: right; font-size: .82rem; padding: 5px 8px; }
+/* Spinner visibile solo sugli input quantità */
+.invoice-table input.input-qty { appearance: auto; -webkit-appearance: auto; -moz-appearance: number-input; padding-right: 2px; }
+.invoice-table input.input-qty::-webkit-inner-spin-button,
+.invoice-table input.input-qty::-webkit-outer-spin-button { -webkit-appearance: auto; opacity: 1; }
+
+/* ── Drag & Drop righe fattura ──────────────────────────────── */
+.drag-handle {
+  cursor: grab;
+  color: var(--border);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  user-select: none;
+  transition: color var(--transition);
+}
+.drag-handle:hover { color: var(--text-muted); }
+.drag-dragging { opacity: .4; }
+.drag-over td { background: var(--primary-light) !important; border-top: 2px solid var(--primary) !important; }
 
 /* ── Bollo Rivalsa locked row ───────────────────────────────── */
 .row-bollo-rivalsa td { background: #FFF8EC !important; border-bottom: 1px solid #FDDBA0 !important; }
@@ -531,6 +560,7 @@ select {
 
 /* ── Bollo ──────────────────────────────────────────────────── */
 .bollo-section { display: flex; flex-direction: column; gap: 12px; }
+.bollo-section > .btn-add-row { align-self: flex-start; }
 .bollo-importo-row { display: flex; align-items: center; gap: 10px; }
 .bollo-importo-row .field { flex: 1; }
 
@@ -647,6 +677,150 @@ select {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+.bollo-check-result {
+  align-items: flex-start; gap: 8px;
+  padding: 7px 11px; border-radius: 7px;
+  font-size: .8rem; margin-top: 5px; line-height: 1.5;
+}
+.bollo-check-si { background: #FFF8EC; border: 1.5px solid #FDDBA0; color: #78350F; }
+.bollo-check-no { background: #F0FDF4; border: 1.5px solid #86EFAC; color: #14532D; }
+
+/* ── Bollo warning obbligatorio ─────────────────────────────── */
+.bollo-warning-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #FFFBEA;
+  border: 1.5px solid #F59E0B;
+  border-radius: var(--radius);
+  font-size: .82rem;
+  color: #78350F;
+  line-height: 1.5;
+}
+.bollo-warning-box strong { color: #92400E; }
+
+/* ── Secondo pulsante importa (cedente/cliente) ─────────────── */
+.btn-import-cedente {
+  background: rgba(27,59,111,.04);
+}
+
+/* ── Import Modal ────────────────────────────────────────────── */
+#bollo-warn-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+#bollo-warn-modal {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  max-width: 460px; width: 100%;
+  box-shadow: 0 12px 48px rgba(0,0,0,.35);
+}
+#bollo-warn-title {
+  font-size: 1.05rem; font-weight: 700;
+  color: #92400E; margin-bottom: 16px;
+}
+
+#import-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+#import-modal {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 12px 48px rgba(0,0,0,.35);
+}
+#import-modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--secondary);
+  margin-bottom: 16px;
+}
+.import-modal-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #FFFBEA;
+  border: 1.5px solid #F59E0B;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: .85rem;
+  color: #78350F;
+  line-height: 1.55;
+  margin-bottom: 4px;
+}
+.import-modal-warning strong { color: #92400E; }
+.import-modal-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.import-check-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: .85rem;
+  color: var(--text);
+  transition: var(--transition);
+}
+.import-check-label:hover { border-color: var(--primary); background: var(--primary-light); }
+.import-check-label input[type="checkbox"] {
+  width: 16px; height: 16px;
+  accent-color: var(--primary);
+  flex-shrink: 0; margin-top: 2px;
+  appearance: auto; border: none; padding: 0;
+}
+.import-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.import-modal-cancel {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  font-family: 'Outfit', sans-serif;
+  font-size: .88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.import-modal-cancel:hover { border-color: var(--text-muted); color: var(--text); }
+.import-modal-confirm {
+  background: var(--secondary);
+  color: white;
+  border: none;
+  padding: 9px 20px;
+  border-radius: var(--radius);
+  font-family: 'Outfit', sans-serif;
+  font-size: .88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.import-modal-confirm:hover { background: var(--secondary-dark, #0F2548); }
 
 /* ── Print ──────────────────────────────────────────────────── */
 @media print {
