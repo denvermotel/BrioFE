@@ -1,6 +1,5 @@
 # BrioFE — Programma di Fatturazione Elettronica
-
-![BrioFE Logo](img/logo.png)
+<div align="center"><img src="/img/logo_full_b.png" height="350px"></div>
 
 > Genera fatture elettroniche XML conformi al formato SDI FPR12 v1.2.3 dell'Agenzia delle Entrate italiana — direttamente nel browser, senza installazioni, senza server, senza memorizzazione di dati.
 
