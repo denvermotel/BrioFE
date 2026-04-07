@@ -3,14 +3,14 @@
 
 > Genera fatture elettroniche XML conformi al formato SDI FPR12 v1.2.3 dell'Agenzia delle Entrate italiana — direttamente nel browser, senza installazioni, senza server, senza memorizzazione di dati.
 
-[![Versione](https://img.shields.io/badge/versione-0.03--alpha-orange)](CHANGELOG.md)
+[![Versione](https://img.shields.io/badge/versione-0.04--alpha-orange)](CHANGELOG.md)
 [![Licenza](https://img.shields.io/badge/licenza-GPL--3.0-green)](LICENSE)
 [![Standard](https://img.shields.io/badge/standard-FPR12%20v1.2.3-blue)](https://www.fatturapa.gov.it)
 [![HTML5](https://img.shields.io/badge/HTML5-pure-red)](https://developer.mozilla.org/en-US/docs/Web/HTML)
 
 ---
 
-## ✨ Funzionalità (v0.03 alpha)
+## ✨ Funzionalità (v0.04 alpha)
 
 - 📋 **Compilazione guidata** di tutti i campi della fattura ordinaria (FPR12 v1.2.3)
 - 🧮 **Calcolo automatico** di imponibili, IVA, totali e riepilogo aliquote in tempo reale
@@ -84,7 +84,7 @@ BrioFE/
 ## 📄 Formato XML generato
 
 BrioFE genera file XML conformi alle specifiche:
-- **Formato**: `FPR12` (Fattura verso Privati, B2B e verso PA con formato ordinario)
+- **Formato**: `FPR12` (Fattura verso Privati, B2B con formato ordinario)
 - **Standard**: Schema XSD `v1.2.3` — `http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2`
 - **Nome file**: `IT[PARTITAIVA]_[PROGRESSIVO].xml` (es: `IT12345678901_BF26A01.xml`)
 - **Encoding**: UTF-8
@@ -113,6 +113,7 @@ BF + YY + L + NN
 | TD01 | Fattura ordinaria |
 | TD04 | Nota di credito |
 | TD05 | Nota di debito |
+| TD06 | Parcella |
 | TD24 | Fattura differita (art.21 c.4 lett. a) |
 | TD25 | Fattura differita (art.21 c.4 lett. b) |
 | TD26 | Cessione beni ammortizzabili |
@@ -147,14 +148,12 @@ Supportate: MP01 (contanti), MP05 (bonifico), MP08 (carta), MP12 (RIBA), MP19–
 
 ---
 
-## ⚠️ Limitazioni versione 0.03-alpha
-
-- ❌ Non supporta fatture di **professionisti** con ritenuta d'acconto
-- ❌ Non supporta la **cassa previdenziale** (es. INPS gestione separata)
+## ⚠️ Limitazioni versione 0.04-alpha
 - ❌ Non supporta la **fattura PA** (FPA12) con CIG/CUP
 - ❌ Il **visualizzatore fatture XML e messaggi SDI** non è ancora disponibile (roadmap futura)
 - ❌ La **generazione PDF** non è ancora disponibile (roadmap v0.05)
 - ❌ Non gestisce **allegati** nella fattura
+- ⚠️ Supporta **una sola cassa previdenziale** per fattura (limite v0.04 — più casse in roadmap)
 
 ---
 

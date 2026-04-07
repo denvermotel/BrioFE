@@ -533,6 +533,8 @@ input[type="number"].input-suggested { font-style: normal; }
   transition: var(--transition); display: inline-flex; align-items: center; gap: 6px;
 }
 .btn-add-row:hover { background: var(--bg-calc); }
+.btn-add-row:disabled { background: var(--bg); color: #A0AABB; border-color: #CBD5E0; cursor: not-allowed; opacity: .7; }
+.btn-add-row:disabled:hover { background: var(--bg); }
 .btn-danger-outline { background: transparent; color: var(--danger); border: 1.5px solid #F5C0C0; padding: 4px 7px; font-size: .78rem; border-radius: 5px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: 600; transition: var(--transition); }
 .btn-danger-outline:hover { background: #FFF0F0; border-color: var(--danger); }
 
@@ -821,6 +823,43 @@ input[type="number"].input-suggested { font-style: normal; }
   transition: var(--transition);
 }
 .import-modal-confirm:hover { background: var(--secondary-dark, #0F2548); }
+
+/* ── Colonne Ritenuta e Cassa nella tabella righe ──────────── */
+.td-rit { width: 36px; text-align: center; }
+.td-rit input[type="checkbox"] { width: 15px; height: 15px; accent-color: #7B5EA7; cursor: pointer; appearance: auto; border: none; padding: 0; }
+.td-cassa { width: 36px; text-align: center; }
+.td-cassa input[type="checkbox"] { width: 15px; height: 15px; accent-color: #2E86AB; cursor: pointer; appearance: auto; border: none; padding: 0; }
+
+/* ── Sezione Professionista ──────────────────────────────── */
+.prof-sub-section { padding: 14px 0 0; }
+.prof-sub-section + .prof-sub-section { border-top: 1px solid var(--border); margin-top: 10px; }
+.prof-sub-header { display: flex; align-items: center; gap: 8px; }
+.prof-sub-header .checkbox-label { font-size: .9rem; font-weight: 600; color: var(--text); cursor: pointer; gap: 8px; }
+.prof-sub-header .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #7B5EA7; appearance: auto; border: none; padding: 0; flex-shrink: 0; }
+
+/* ── Card cassa previdenziale ────────────────────────────── */
+.cassa-row-card { background: #fff; border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.cassa-row-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cassa-row-top select { flex: 1; min-width: 0; font-size: .82rem; padding: 5px 7px; border-radius: 5px; border: 1.5px solid var(--border); background: #fff; color: var(--text); }
+.cassa-row-fields { display: flex; align-items: flex-end; gap: 8px; width: 100%; flex-wrap: nowrap; }
+.cassa-field { display: flex; flex-direction: column; gap: 3px; font-size: .74rem; color: var(--text-secondary); font-weight: 600; flex: 1; min-width: 0; }
+.cassa-field-imp { flex: 1.8; }
+.cassa-field-rit { flex: 0 0 40px; align-items: center; }
+.cassa-field input[type="number"] { width: 100%; box-sizing: border-box; padding: 5px 7px; font-size: .82rem; border-radius: 5px; border: 1.5px solid var(--border); background: var(--bg); color: var(--text); }
+.cassa-field select { width: 100%; box-sizing: border-box; padding: 5px 7px; font-size: .82rem; border-radius: 5px; border: 1.5px solid var(--border); background: var(--bg); color: var(--text); }
+.cassa-field input[type="checkbox"] { width: 16px; height: 16px; accent-color: #7B5EA7; cursor: pointer; appearance: auto; margin-top: 4px; }
+.cassa-field .calc-display { display: block; width: 100%; box-sizing: border-box; min-width: 0; }
+
+/* ── Campo calcolato readonly ────────────────────────────── */
+.calc-display { display: inline-block; background: var(--bg-calc); color: var(--text-calc); font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: .82rem; padding: 5px 10px; border-radius: 5px; min-width: 90px; text-align: right; }
+
+/* ── Righe ritenuta / netto nei Totali ───────────────────── */
+.totals-row-ritenuta { background: #FFF5F5; }
+.totals-row-ritenuta .tot-label { color: #C0392B !important; }
+.totals-row-ritenuta .tot-value { background: #FCE8E8 !important; color: #C0392B !important; }
+.totals-row-netto { background: #7B5EA7 !important; padding: 10px 16px !important; border-top: 2px solid #5E4080 !important; }
+.totals-row-netto .tot-label { color: rgba(255,255,255,.85) !important; font-size: .85rem !important; }
+.totals-row-netto .tot-value { background: rgba(255,255,255,.2) !important; color: white !important; font-size: 1.05rem !important; }
 
 /* ── Print ──────────────────────────────────────────────────── */
 @media print {

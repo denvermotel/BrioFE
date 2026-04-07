@@ -1,6 +1,6 @@
 /**
  * BrioFE - Fatturazione Elettronica
- * app.js v0.03 alpha
+ * app.js v0.04 alpha
  */
 
 'use strict';
@@ -12,6 +12,8 @@ let lineCounter = 0;
 const activeLines = new Set();
 const BOLLO_ROW_ID = 'bollo-rivalsa-row';
 let bolloManuallyDisabled = false;   /* true quando l'utente disattiva manualmente il bollo */
+let cassaCounter = 0;
+const activeCasse = new Set();
 
 /* ─────────────────────────────────────────────────────────────
    UTILITY
@@ -170,38 +172,93 @@ function updateActiveNav() {
 window.addEventListener('scroll', updateActiveNav, { passive: true });
 
 /* ─────────────────────────────────────────────────────────────
-   PROGRESSIVO INVIO
-   Formato: BF + YY + lettera + 2 cifre
-   es. fattura 121 del 2026 → BF26B21
+   PROGRESSIVO INVIO v2.0
+   Formato: B T YY S NNNN C  (10 caratteri)
+   B    = prefisso fisso BrioFE
+   T    = tentativo invio (F=primo, G=1°reinvio, …, P=10°reinvio)
+   YY   = anno fattura mod 100
+   S    = serie IVA (0=nessuna, A–Z)
+   NNNN = numero fattura zero-padded (0001–9999)
+   C    = carattere di controllo Base-36 pesato
 ───────────────────────────────────────────────────────────── */
+const _CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function computeChecksum(s9) {
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += (i + 1) * _CHARSET.indexOf(s9[i]);
+  }
+  return _CHARSET[(36 - (sum % 36)) % 36];
+}
+
+function parseNumeroFattura(raw, invoiceYear) {
+  raw = (raw || '').trim();
+  if (!raw) throw new Error('Numero fattura mancante');
+
+  const m = raw.match(/^(\d+)(?:\/(.+))?$/);
+  if (!m) throw new Error('Formato numero fattura non riconosciuto');
+
+  const numPart = parseInt(m[1], 10);
+  if (numPart < 1 || numPart > 9999) throw new Error('Numero fattura fuori range (1–9999)');
+
+  if (!m[2]) return { nr: numPart, series: '0' };
+
+  const suffix = m[2].trim().toUpperCase();
+
+  if (/^[A-Z]$/.test(suffix)) return { nr: numPart, series: suffix };
+
+  if (/^\d+$/.test(suffix)) {
+    const sv = parseInt(suffix, 10);
+    const yy = invoiceYear % 100;
+    if (sv > 999 || sv === yy || sv === invoiceYear) return { nr: numPart, series: '0' };
+    throw new Error(`Suffisso anno ambiguo: "${suffix}" non corrisponde all'anno fattura`);
+  }
+
+  throw new Error(`Suffisso non riconosciuto: "${suffix}"`);
+}
+
 function computeProgressivo() {
   const nrField = el('fattura-numero');
   const nrRaw   = (nrField?.value?.trim()) || (nrField?.placeholder?.trim()) || '';
   const data    = val('fattura-data');
 
-  const digits = nrRaw.replace(/\D/g, '');
-  const nr     = parseInt(digits, 10) || 0;
-
-  let yy = new Date().getFullYear().toString().slice(-2);
+  let invoiceYear = new Date().getFullYear();
   if (data) {
-    const yr = data.split('-')[0];
-    if (yr) yy = yr.slice(-2);
+    const yr = parseInt(data.split('-')[0], 10);
+    if (yr > 999) invoiceYear = yr;
+  }
+  const yy = String(invoiceYear).slice(-2);
+
+  const tentativo = parseInt(val('tentativo-invio'), 10) || 1;
+  if (tentativo < 1 || tentativo > 11) {
+    toast('Tentativo invio fuori range (1–11)', 'error', 6000);
+    return null;
+  }
+  const T = String.fromCharCode('F'.charCodeAt(0) + tentativo - 1);
+
+  let parsed;
+  try {
+    parsed = parseNumeroFattura(nrRaw, invoiceYear);
+    nrField?.classList.remove('is-invalid');
+  } catch (err) {
+    nrField?.classList.add('is-invalid');
+    toast('Progressivo: ' + err.message, 'error', 6000);
+    return null;
   }
 
-  const letterIndex = Math.floor(nr / 100);
-  const letter      = String.fromCharCode(65 + Math.min(letterIndex, 25));
-  const last2       = String(nr % 100).padStart(2, '0');
-
-  return `BF${yy}${letter}${last2}`;
+  const S    = parsed.series;
+  const NNNN = String(parsed.nr).padStart(4, '0');
+  const body = ('B' + T + yy + S + NNNN).toUpperCase(); /* 9 chars */
+  return body + computeChecksum(body);                   /* 10 chars */
 }
 
 function updateProgressivo() {
   const editCb = el('progressivo-edit');
   if (editCb && editCb.checked) return; /* manuale: non sovrascrivere */
   const field = el('progressivo-invio');
-  if (field) {
-    field.value = computeProgressivo();
-  }
+  if (!field) return;
+  const v = computeProgressivo();
+  if (v !== null) field.value = v;
 }
 
 function toggleProgressivoEdit() {
@@ -220,6 +277,14 @@ function toggleProgressivoEdit() {
     field.classList.add('calc-input');
     updateProgressivo(); /* ricalcola */
   }
+}
+
+function stepTentativo(delta) {
+  const f = el('tentativo-invio');
+  if (!f) return;
+  const v = Math.min(11, Math.max(1, (parseInt(f.value, 10) || 1) + delta));
+  f.value = v;
+  updateProgressivo();
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -284,6 +349,12 @@ function addLine() {
         <option value="N6.9">N6.9 – Inversione contabile altri casi</option>
         <option value="N7">N7 – IVA assolta in altro stato UE</option>
       </select>
+    </td>
+    <td class="td-rit" id="rit-td-${id}">
+      <input type="checkbox" id="rit-${id}" onchange="onRitChange(${id})" title="Soggetta a ritenuta d'acconto">
+    </td>
+    <td class="td-cassa" id="cassa-td-${id}">
+      <input type="checkbox" id="cassa-sel-${id}" onchange="onCassaChange(${id})" title="Riga assegnata alla cassa previdenziale">
     </td>
     <td class="td-tot td-calc" id="imponibile-${id}">0,00</td>
     <td class="td-del">
@@ -402,6 +473,19 @@ function buildIvaMap() {
     map[key].imponibile += imponibile;
     map[key].imposta    += ivaImporto;
   });
+  /* Contributi casse previdenziali */
+  if (el('cassa-attiva')?.checked) {
+    activeCasse.forEach(cid => {
+      const aliq   = parseFloat(el(`cassa-iva-${cid}`)?.value || 0);
+      const contr  = calcContributoCassa(cid);
+      if (contr <= 0) return;
+      const natura = (aliq === 0) ? (el(`cassa-natura-${cid}`)?.value || '') : '';
+      const key    = `${fmt(aliq)}|${natura}`;
+      if (!map[key]) map[key] = { aliquota: aliq, natura, imponibile: 0, imposta: 0 };
+      map[key].imponibile += contr;
+      map[key].imposta    += contr * aliq / 100;
+    });
+  }
   return map;
 }
 
@@ -410,19 +494,28 @@ function recalc() {
   let totImponibile = 0, totIVA = 0;
   Object.values(ivaMap).forEach(v => { totImponibile += v.imponibile; totIVA += v.imposta; });
 
-  const hasBolloSi   = el('bollo-si')?.checked;
-  const hasRivalsaSi = el('rivalsa-si')?.checked;
-  const bolloImporto = hasBolloSi ? parseNum(el('importo-bollo')?.value) : 0;
-  const bolloInTotale = hasBolloSi && !hasRivalsaSi ? bolloImporto : 0;
-  const totFattura    = totImponibile + totIVA + bolloInTotale;
+  const totFattura      = totImponibile + totIVA;
+
+  const ritenutaAttiva  = el('ritenuta-attiva')?.checked;
+  const importoRitenuta = ritenutaAttiva ? calcImportoRitenuta() : 0;
+  const totNetto        = totFattura - importoRitenuta;
 
   setCalc('tot-imponibile',       totImponibile);
   setCalc('tot-iva',              totIVA);
   setCalc('tot-fattura',          totFattura);
-  setCalc('totale-pagare-amount', totFattura);
+  setCalc('totale-pagare-amount', ritenutaAttiva ? totNetto : totFattura);
+
+  const ritRow   = el('tot-ritenuta-row');
+  const nettoRow = el('tot-netto-row');
+  if (ritRow)   ritRow.style.display   = ritenutaAttiva ? '' : 'none';
+  if (nettoRow) nettoRow.style.display = ritenutaAttiva ? '' : 'none';
+  if (ritenutaAttiva) {
+    setCalc('tot-ritenuta', importoRitenuta);
+    setCalc('tot-netto',    totNetto);
+  }
 
   updateRiepilogoIVA(ivaMap);
-  syncPagamentoImporto(totFattura);
+  syncPagamentoImporto(ritenutaAttiva ? totNetto : totFattura);
 }
 
 function setCalc(id, value) {
@@ -432,9 +525,7 @@ function setCalc(id, value) {
 
 function syncPagamentoImporto(total) {
   const impEl = el('pagamento-importo');
-  if (impEl && !impEl.dataset.manuallyEdited) {
-    impEl.value = fmt(total);
-  }
+  if (impEl) impEl.value = fmt(total);
 }
 
 function updateRiepilogoIVA(ivaMap) {
@@ -451,6 +542,261 @@ function updateRiepilogoIVA(ivaMap) {
     tr.innerHTML = `<td>${fmtIt(v.imponibile)} €</td><td>${fmt(v.aliquota)}%${v.natura?' ('+v.natura+')':''}</td><td>${fmtIt(v.imposta)} €</td>`;
     tbody.appendChild(tr);
   });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RITENUTA D'ACCONTO
+───────────────────────────────────────────────────────────── */
+function toggleRitenutaSection() {
+  const attiva  = el('ritenuta-attiva')?.checked;
+  const dettaglio = el('ritenuta-dettaglio');
+  if (dettaglio) dettaglio.style.display = attiva ? 'block' : 'none';
+  recalc();
+}
+
+function anyRitenutaRowChecked() {
+  return Array.from(document.querySelectorAll('#linee-body tr')).some(tr => {
+    if (tr.id === BOLLO_ROW_ID) return el('rit-bollo')?.checked;
+    return el(`rit-${tr.id.replace('line-', '')}`)?.checked;
+  });
+}
+
+/* Auto-abilita/disabilita ritenuta quando il checkbox di riga cambia */
+function onRitChange(id) {
+  const isChecked = el(`rit-${id}`)?.checked;
+  if (isChecked && !el('ritenuta-attiva')?.checked) {
+    const chk = el('ritenuta-attiva');
+    if (chk) { chk.checked = true; toggleRitenutaSection(); return; }
+  }
+  if (!isChecked && el('ritenuta-attiva')?.checked && !anyRitenutaRowChecked()) {
+    const chk = el('ritenuta-attiva');
+    if (chk) { chk.checked = false; toggleRitenutaSection(); return; }
+  }
+  recalc();
+}
+
+function anyCassaRowChecked() {
+  return Array.from(document.querySelectorAll('#linee-body tr')).some(tr => {
+    if (tr.id === BOLLO_ROW_ID) return el('cassa-sel-bollo')?.checked;
+    return el(`cassa-sel-${tr.id.replace('line-', '')}`)?.checked;
+  });
+}
+
+function onCassaChange(id) {
+  const isChecked = el(`cassa-sel-${id}`)?.checked;
+  if (isChecked && !el('cassa-attiva')?.checked) {
+    const chk = el('cassa-attiva');
+    if (chk) { chk.checked = true; toggleCassaSection(); return; }
+  }
+  if (!isChecked && el('cassa-attiva')?.checked && !anyCassaRowChecked()) {
+    const chk = el('cassa-attiva');
+    if (chk) { chk.checked = false; toggleCassaSection(); return; }
+  }
+  recalc();
+}
+
+function onRitBolloChange() {
+  const isChecked = el('rit-bollo')?.checked;
+  if (isChecked && !el('ritenuta-attiva')?.checked) {
+    const chk = el('ritenuta-attiva');
+    if (chk) { chk.checked = true; toggleRitenutaSection(); return; }
+  }
+  if (!isChecked && el('ritenuta-attiva')?.checked && !anyRitenutaRowChecked()) {
+    const chk = el('ritenuta-attiva');
+    if (chk) { chk.checked = false; toggleRitenutaSection(); return; }
+  }
+  recalc();
+}
+
+function onCassaBolloChange() {
+  const isChecked = el('cassa-sel-bollo')?.checked;
+  if (isChecked && !el('cassa-attiva')?.checked) {
+    const chk = el('cassa-attiva');
+    if (chk) { chk.checked = true; toggleCassaSection(); return; }
+  }
+  if (!isChecked && el('cassa-attiva')?.checked && !anyCassaRowChecked()) {
+    const chk = el('cassa-attiva');
+    if (chk) { chk.checked = false; toggleCassaSection(); return; }
+  }
+  recalc();
+}
+
+function calcImportoRitenuta() {
+  const aliq = parseNum(el('ritenuta-aliquota')?.value);
+  let base = 0;
+  document.querySelectorAll('#linee-body tr').forEach(tr => {
+    if (tr.id === BOLLO_ROW_ID) {
+      if (el('rit-bollo')?.checked) base += parseNum(el('importo-bollo')?.value) || 2.00;
+      return;
+    }
+    const id    = tr.id.replace('line-', '');
+    if (!el(`rit-${id}`)?.checked) return;
+    const qty   = parseNum(el(`qty-${id}`)?.value);
+    const price = parseNum(el(`price-${id}`)?.value);
+    const disc  = parseNum(el(`disc-${id}`)?.value);
+    base += qty * price * (1 - disc / 100);
+  });
+  const importo = base * aliq / 100;
+  const disp = el('ritenuta-importo-display');
+  if (disp) disp.textContent = fmtIt(importo) + ' €';
+  return importo;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CASSE PREVIDENZIALI
+───────────────────────────────────────────────────────────── */
+function toggleCassaSection() {
+  const attiva = el('cassa-attiva')?.checked;
+  const dettaglio = el('cassa-dettaglio');
+  if (dettaglio) dettaglio.style.display = attiva ? 'block' : 'none';
+  if (attiva && activeCasse.size === 0) addCassaRow();
+  recalc();
+}
+
+function getCassaImponibileRighe() {
+  let tot = 0;
+  document.querySelectorAll('#linee-body tr').forEach(tr => {
+    if (tr.id === BOLLO_ROW_ID) return;
+    const id    = tr.id.replace('line-', '');
+    const qty   = parseNum(el(`qty-${id}`)?.value);
+    const price = parseNum(el(`price-${id}`)?.value);
+    const disc  = parseNum(el(`disc-${id}`)?.value);
+    tot += qty * price * (1 - disc / 100);
+  });
+  return tot;
+}
+
+function calcContributoCassa(cid) {
+  const alc   = parseNum(el(`cassa-al-${cid}`)?.value);
+  const impEl = el(`cassa-imponibile-${cid}`);
+  let imp;
+  if (impEl?.dataset.manuallyEdited === '1') {
+    imp = parseNum(impEl.value);
+  } else {
+    /* Usa righe marcate con checkbox cassa; se nessuna, usa tutto il totale righe */
+    const fromRows = getCassaImponibileFromRows();
+    imp = fromRows > 0 ? fromRows : getCassaImponibileRighe();
+    /* Auto-compila il campo imponibile con il valore calcolato */
+    if (impEl) { impEl.value = fmt(imp); impEl.classList.add('input-suggested'); }
+  }
+  const contr  = imp * alc / 100;
+  const dispEl = el(`cassa-contributo-display-${cid}`);
+  if (dispEl) dispEl.textContent = fmtIt(contr) + ' €';
+  return contr;
+}
+
+function recalcCassa(cid) {
+  calcContributoCassa(cid);
+  const aliq  = parseFloat(el(`cassa-iva-${cid}`)?.value || 0);
+  const natEl = el(`cassa-natura-td-${cid}`);
+  if (natEl) natEl.style.display = (aliq === 0) ? '' : 'none';
+  recalc();
+}
+
+function addCassaRow() {
+  cassaCounter++;
+  const cid   = cassaCounter;
+  activeCasse.add(cid);
+  const container = el('cassa-body');
+  const row   = document.createElement('div');
+  row.id      = `cassa-row-${cid}`;
+  row.className = 'cassa-row-card';
+  row.innerHTML = `
+    <div class="cassa-row-top">
+      <select id="cassa-tipo-${cid}" onchange="recalcCassa(${cid})">
+        <option value="TC01">TC01 – Avvocati / Procuratori</option>
+        <option value="TC02">TC02 – Dottori Commercialisti</option>
+        <option value="TC03">TC03 – Geometri</option>
+        <option value="TC04">TC04 – Ingegneri / Architetti</option>
+        <option value="TC05">TC05 – Notariato</option>
+        <option value="TC06">TC06 – Ragionieri / Periti comm.</option>
+        <option value="TC07">TC07 – ENASARCO</option>
+        <option value="TC08">TC08 – ENPACL (Consulenti lavoro)</option>
+        <option value="TC09">TC09 – ENPAM (Medici)</option>
+        <option value="TC10">TC10 – ENPAF (Farmacisti)</option>
+        <option value="TC11">TC11 – ENPAV (Veterinari)</option>
+        <option value="TC12">TC12 – ENPAIA (Agric.)</option>
+        <option value="TC13">TC13 – Spedizionieri / Agenzie</option>
+        <option value="TC14">TC14 – INPGI (Giornalisti)</option>
+        <option value="TC15">TC15 – ONAOSI</option>
+        <option value="TC16">TC16 – CASAGIT</option>
+        <option value="TC17">TC17 – EPPI (Periti industriali)</option>
+        <option value="TC18">TC18 – EPAP (Pluricategoriale)</option>
+        <option value="TC19">TC19 – ENPAB (Biologi)</option>
+        <option value="TC20">TC20 – ENPAPI (Infermieri)</option>
+        <option value="TC21">TC21 – ENPAP (Psicologi)</option>
+        <option value="TC22" selected>TC22 – INPS (Gest. Separata)</option>
+      </select>
+      <button type="button" class="btn-danger-outline" onclick="removeCassaRow(${cid})" title="Rimuovi cassa">✕</button>
+    </div>
+    <div class="cassa-row-fields">
+      <label class="cassa-field">
+        <span>Aliquota %</span>
+        <input type="number" id="cassa-al-${cid}" value="4.00" step="0.01" min="0" max="100" oninput="recalcCassa(${cid})">
+      </label>
+      <label class="cassa-field cassa-field-imp">
+        <span>Imponibile</span>
+        <input type="number" id="cassa-imponibile-${cid}" step="0.01" min="0" class="input-suggested"
+          oninput="this.dataset.manuallyEdited=this.value.trim()?'1':''; this.classList.toggle('input-suggested',!this.value.trim()); recalcCassa(${cid})">
+      </label>
+      <label class="cassa-field">
+        <span>Contributo</span>
+        <span class="calc-display" id="cassa-contributo-display-${cid}">0,00 €</span>
+      </label>
+      <label class="cassa-field">
+        <span>IVA %</span>
+        <select id="cassa-iva-${cid}" onchange="recalcCassa(${cid})">
+          <option value="22.00">22%</option>
+          <option value="10.00">10%</option>
+          <option value="5.00">5%</option>
+          <option value="4.00">4%</option>
+          <option value="0.00">0%</option>
+        </select>
+      </label>
+      <label class="cassa-field cassa-field-rit" title="Soggetta a ritenuta d'acconto">
+        <span>Rit.</span>
+        <input type="checkbox" id="cassa-rit-${cid}">
+      </label>
+      <label class="cassa-field" id="cassa-natura-td-${cid}" style="display:none">
+        <span>Natura</span>
+        <select id="cassa-natura-${cid}" onchange="recalc()">
+          <option value="N2.2">N2.2</option>
+          <option value="N4">N4</option>
+          <option value="N1">N1</option>
+        </select>
+      </label>
+    </div>
+  `;
+  container.appendChild(row);
+  recalcCassa(cid);
+}
+
+function removeCassaRow(cid) {
+  const row = el(`cassa-row-${cid}`);
+  if (row) row.remove();
+  activeCasse.delete(cid);
+  recalc();
+}
+
+/* Somma imponibili delle righe con checkbox cassa-sel spuntato. */
+function getCassaImponibileFromRows() {
+  let tot = 0;
+  document.querySelectorAll('#linee-body tr').forEach(tr => {
+    let rowChecked, rowImponibile;
+    if (tr.id === BOLLO_ROW_ID) {
+      rowChecked    = el('cassa-sel-bollo')?.checked;
+      rowImponibile = parseNum(el('importo-bollo')?.value) || 2.00;
+    } else {
+      const id      = tr.id.replace('line-', '');
+      rowChecked    = el(`cassa-sel-${id}`)?.checked;
+      const qty     = parseNum(el(`qty-${id}`)?.value);
+      const price   = parseNum(el(`price-${id}`)?.value);
+      const disc    = parseNum(el(`disc-${id}`)?.value);
+      rowImponibile = qty * price * (1 - disc / 100);
+    }
+    if (rowChecked) tot += rowImponibile;
+  });
+  return tot;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -513,8 +859,12 @@ function removeBolloRivalsaRow() {
 function updateBolloRivalsaRow() {
   const row = el(BOLLO_ROW_ID);
   if (!row) return;
-  const amount = parseNum(el('importo-bollo')?.value) || 2.00;
-  row.innerHTML = buildBolloRivalsaRowHTML(amount);
+  const amount      = parseNum(el('importo-bollo')?.value) || 2.00;
+  const prevRit   = el('rit-bollo')?.checked || false;
+  const prevCassa = el('cassa-sel-bollo')?.checked || false;
+  row.innerHTML   = buildBolloRivalsaRowHTML(amount);
+  if (prevRit)   { const r = el('rit-bollo');      if (r) r.checked = true; }
+  if (prevCassa) { const c = el('cassa-sel-bollo'); if (c) c.checked = true; }
   recalc();
 }
 
@@ -531,6 +881,8 @@ function buildBolloRivalsaRowHTML(amount) {
     <td class="td-disc"><span class="locked-cell">—</span></td>
     <td class="td-iva"><span class="locked-cell">0%</span></td>
     <td class="td-natura"><span class="locked-cell" style="font-size:.75rem">N1 – Escluse art.15</span></td>
+    <td class="td-rit"><input type="checkbox" id="rit-bollo" onchange="onRitBolloChange()" title="Riga bollo soggetta a ritenuta"></td>
+    <td class="td-cassa"><input type="checkbox" id="cassa-sel-bollo" onchange="onCassaBolloChange()" title="Riga bollo assegnata alla cassa previdenziale"></td>
     <td class="td-tot td-calc">${fmtIt(amount)}</td>
     <td class="td-del" style="color:#FDDBA0;text-align:center;font-size:1rem">🔒</td>
   `;
@@ -642,7 +994,7 @@ function _doGenerateXML() {
   try {
     const xmlStr   = buildXML();
     const piva     = val('cedente-piva').replace(/\s/g,'');
-    const prog     = (val('progressivo-invio') || computeProgressivo()).toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10);
+    const prog     = (val('progressivo-invio') || computeProgressivo() || '').toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10);
     const filename = `IT${piva}_${prog}.xml`;
     downloadXML(xmlStr, filename);
     toast(`Fattura XML generata: ${filename}`, 'success', 5000);
@@ -675,7 +1027,7 @@ function buildXML() {
 
   const sdiCode    = (val('cedente-sdi').toUpperCase() || '0000000').padEnd(7,'0').substring(0,7) || '0000000';
   const pecDest    = val('cedente-pec');
-  const progressivo = (val('progressivo-invio') || computeProgressivo()).toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10) || 'BF00A00';
+  const progressivo = (val('progressivo-invio') || computeProgressivo() || '').toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,10) || 'BF00A00';
 
   const pivaCliente = val('cliente-piva').replace(/\s/g,'');
   const cfCliente   = val('cliente-cf').replace(/\s/g,'');
@@ -700,10 +1052,16 @@ function buildXML() {
   Object.values(ivaMap).forEach(v => { totImponibile += v.imponibile; totIVA += v.imposta; });
 
   const hasBolloSi   = el('bollo-si')?.checked;
-  const hasRivalsaSi = el('rivalsa-si')?.checked;
   const bolloImporto = hasBolloSi ? parseNum(el('importo-bollo')?.value) : 0;
-  const bolloInTotale = hasBolloSi && !hasRivalsaSi ? bolloImporto : 0;
-  const totFattura    = totImponibile + totIVA + bolloInTotale;
+
+  const ritenutaAttiva  = el('ritenuta-attiva')?.checked;
+  const tipoRit         = val('ritenuta-tipo');
+  const aliqRit         = val('ritenuta-aliquota');
+  const causaleRit      = val('ritenuta-causale');
+  const importoRitenuta = ritenutaAttiva ? calcImportoRitenuta() : 0;
+  const cassaAttiva     = el('cassa-attiva')?.checked;
+
+  const totFattura = totImponibile + totIVA - importoRitenuta;
 
   const condPag  = val('pagamento-condizioni') || 'TP02';
   const modalPag = val('pagamento-modalita');
@@ -777,11 +1135,42 @@ function buildXML() {
   xml += `        <Divisa>EUR</Divisa>\n`;
   xml += `        <Data>${escXml(dataFatt)}</Data>\n`;
   xml += `        <Numero>${escXml(nrFatt)}</Numero>\n`;
+  if (ritenutaAttiva && tipoRit && importoRitenuta > 0) {
+    xml += `        <DatiRitenuta>\n`;
+    xml += `          <TipoRitenuta>${escXml(tipoRit)}</TipoRitenuta>\n`;
+    xml += `          <ImportoRitenuta>${fmt(importoRitenuta)}</ImportoRitenuta>\n`;
+    xml += `          <AliquotaRitenuta>${fmt(parseNum(aliqRit))}</AliquotaRitenuta>\n`;
+    xml += `          <CausalePagamento>${escXml(causaleRit)}</CausalePagamento>\n`;
+    xml += `        </DatiRitenuta>\n`;
+  }
   if (hasBolloSi) {
     xml += `        <DatiBollo>\n`;
     xml += `          <BolloVirtuale>SI</BolloVirtuale>\n`;
     if (bolloImporto > 0) xml += `          <ImportoBollo>${fmt(bolloImporto)}</ImportoBollo>\n`;
     xml += `        </DatiBollo>\n`;
+  }
+  if (cassaAttiva) {
+    activeCasse.forEach(cid => {
+      const tipoCassa  = val(`cassa-tipo-${cid}`);
+      const alCassa    = parseNum(el(`cassa-al-${cid}`)?.value);
+      const contr      = calcContributoCassa(cid);
+      const impCassaEl = el(`cassa-imponibile-${cid}`);
+      const impCassa   = impCassaEl && impCassaEl.value.trim() !== '' ? parseNum(impCassaEl.value) : null;
+      const ivaC       = parseNum(el(`cassa-iva-${cid}`)?.value);
+      const ritC       = el(`cassa-rit-${cid}`)?.checked;
+      const aliqIvaC   = parseFloat(el(`cassa-iva-${cid}`)?.value || 0);
+      const naturaC    = (aliqIvaC === 0) ? (val(`cassa-natura-${cid}`) || '') : '';
+      if (!tipoCassa) return;
+      xml += `        <DatiCassaPrevidenziale>\n`;
+      xml += `          <TipoCassa>${escXml(tipoCassa)}</TipoCassa>\n`;
+      xml += `          <AlCassa>${fmt(alCassa)}</AlCassa>\n`;
+      xml += `          <ImportoContributoCassa>${fmt(contr)}</ImportoContributoCassa>\n`;
+      if (impCassa !== null) xml += `          <ImponibileCassa>${fmt(impCassa)}</ImponibileCassa>\n`;
+      xml += `          <AliquotaIVA>${fmt(ivaC)}</AliquotaIVA>\n`;
+      if (ritC) xml += `          <Ritenuta>SI</Ritenuta>\n`;
+      if (naturaC) xml += `          <Natura>${escXml(naturaC)}</Natura>\n`;
+      xml += `        </DatiCassaPrevidenziale>\n`;
+    });
   }
   xml += `        <ImportoTotaleDocumento>${fmt(totFattura)}</ImportoTotaleDocumento>\n`;
   if (causale) {
@@ -805,6 +1194,7 @@ function buildXML() {
       xml += `        <PrezzoTotale>${fmt(br.imponibile,8)}</PrezzoTotale>\n`;
       xml += `        <AliquotaIVA>0.00</AliquotaIVA>\n`;
       xml += `        <Natura>N1</Natura>\n`;
+      if (el('rit-bollo')?.checked) xml += `        <Ritenuta>SI</Ritenuta>\n`;
       xml += `      </DettaglioLinee>\n`;
       return;
     }
@@ -827,6 +1217,7 @@ function buildXML() {
     xml += `        <PrezzoTotale>${fmt(imponibile,8)}</PrezzoTotale>\n`;
     xml += `        <AliquotaIVA>${fmt(iva)}</AliquotaIVA>\n`;
     if (natura) xml += `        <Natura>${escXml(natura)}</Natura>\n`;
+    if (el(`rit-${id}`)?.checked) xml += `        <Ritenuta>SI</Ritenuta>\n`;
     xml += `      </DettaglioLinee>\n`;
   });
 
@@ -1280,6 +1671,12 @@ function parseAndLoadXML(xmlDoc, mode) {
       }
     }
 
+    /* Ritenuta per riga */
+    if (xmlText(linea, 'Ritenuta') === 'SI') {
+      const ritEl = el(`rit-${lid}`);
+      if (ritEl) ritEl.checked = true;
+    }
+
     recalcLine(lid);
     importedLines++;
   });
@@ -1294,6 +1691,18 @@ function parseAndLoadXML(xmlDoc, mode) {
       addBolloRivalsaRow();
     }
   }
+  /* Rit. sulla riga bollo (se precedentemente esportata) */
+  if (hasRivalsaRow) {
+    Array.from(xmlDoc.getElementsByTagName('DettaglioLinee')).forEach(linea => {
+      const desc  = xmlText(linea, 'Descrizione');
+      const natura = xmlText(linea, 'Natura');
+      if (desc && desc.toLowerCase().includes('bollo') && natura === 'N1') {
+        if (xmlText(linea, 'Ritenuta') === 'SI') {
+          const r = el('rit-bollo'); if (r) r.checked = true;
+        }
+      }
+    });
+  }
 
   /* ── PAGAMENTO ────────────────────────────────────────── */
   const condPagEl = xmlDoc.getElementsByTagName('CondizioniPagamento')[0];
@@ -1306,17 +1715,59 @@ function parseAndLoadXML(xmlDoc, mode) {
     const impPag = xmlText(detPag, 'ImportoPagamento');
     if (impPag) {
       const impEl = el('pagamento-importo');
-      if (impEl) { impEl.value = impPag; impEl.dataset.manuallyEdited = '1'; }
+      if (impEl) { impEl.value = impPag; }
     }
     setVal('pagamento-iban', xmlText(detPag, 'IBAN'));
     setVal('pagamento-bic',  xmlText(detPag, 'BIC'));
   }
 
-  /* Segnala campi non supportati trovati nell'XML */
-  if (xmlDoc.getElementsByTagName('DatiRitenuta').length > 0)
-    hasIgnored.push('DatiRitenuta (ritenuta d\'acconto — roadmap v0.04)');
-  if (xmlDoc.getElementsByTagName('DatiCassaPrevidenziale').length > 0)
-    hasIgnored.push('DatiCassaPrevidenziale (roadmap v0.04)');
+  /* ── RITENUTA D'ACCONTO ──────────────────────────────── */
+  const datiRit = datiGen?.getElementsByTagName('DatiRitenuta')[0];
+  if (datiRit) {
+    const ritAttivaEl = el('ritenuta-attiva');
+    if (ritAttivaEl) { ritAttivaEl.checked = true; }
+    const tipoRitV = xmlText(datiRit, 'TipoRitenuta');
+    const alqRitV  = xmlText(datiRit, 'AliquotaRitenuta');
+    const cauRitV  = xmlText(datiRit, 'CausalePagamento');
+    setSelect('ritenuta-tipo',    tipoRitV);
+    if (alqRitV) setVal('ritenuta-aliquota', alqRitV);
+    setSelect('ritenuta-causale', cauRitV);
+    toggleRitenutaSection();
+  }
+
+  /* ── CASSE PREVIDENZIALI ─────────────────────────────── */
+  const cassaEls = datiGen ? Array.from(datiGen.getElementsByTagName('DatiCassaPrevidenziale')) : [];
+  if (cassaEls.length > 0) {
+    const cassaAttivaEl = el('cassa-attiva');
+    if (cassaAttivaEl) cassaAttivaEl.checked = true;
+    const cassaDetEl = el('cassa-dettaglio');
+    if (cassaDetEl) cassaDetEl.style.display = 'block';
+    /* Svuota eventuali righe precedenti */
+    activeCasse.forEach(cid => { const r = el(`cassa-row-${cid}`); if (r) r.remove(); });
+    activeCasse.clear();
+    cassaEls.forEach(cassaEl => {
+      addCassaRow();
+      const cid = cassaCounter;
+      setSelect(`cassa-tipo-${cid}`,   xmlText(cassaEl, 'TipoCassa'));
+      const alcV  = xmlText(cassaEl, 'AlCassa');
+      const impV  = xmlText(cassaEl, 'ImponibileCassa');
+      const ivaV  = xmlText(cassaEl, 'AliquotaIVA');
+      const ritV  = xmlText(cassaEl, 'Ritenuta');
+      const natV  = xmlText(cassaEl, 'Natura');
+      if (alcV) setVal(`cassa-al-${cid}`,         alcV);
+      if (impV) setVal(`cassa-imponibile-${cid}`,  impV);
+      if (ivaV) {
+        const ivaEl = el(`cassa-iva-${cid}`);
+        if (ivaEl) {
+          const matchOpt = Array.from(ivaEl.options).find(o => Math.abs(parseFloat(o.value) - parseFloat(ivaV)) < 0.001);
+          if (matchOpt) ivaEl.value = matchOpt.value;
+        }
+      }
+      if (ritV === 'SI') { const ritEl = el(`cassa-rit-${cid}`); if (ritEl) ritEl.checked = true; }
+      if (natV) setSelect(`cassa-natura-${cid}`, natV);
+      recalcCassa(cid);
+    });
+  }
 
   recalc();
   updateProgressivo();
@@ -1374,12 +1825,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const rivNo = el('rivalsa-no');
   if (rivNo) { rivNo.checked = true; rivNo.closest('.checkbox-label')?.classList.add('checked'); }
 
-  /* Pagamento importo: flag se modificato manualmente */
-  const impEl = el('pagamento-importo');
-  if (impEl) impEl.addEventListener('input', () => { impEl.dataset.manuallyEdited = '1'; });
 
   /* Nav attivo iniziale */
   updateActiveNav();
 
-  console.log('%cBrioFE v0.03 alpha — Fatturazione Elettronica', 'color:#009B8A;font-size:14px;font-weight:bold;');
+  console.log('%cBrioFE v0.04beta — Fatturazione Elettronica', 'color:#009B8A;font-size:14px;font-weight:bold;');
 });

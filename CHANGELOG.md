@@ -6,6 +6,29 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ---
 
+## [0.04-alpha] - 2026-03-29
+
+### Aggiunto
+- **Tipo Documento TD06 – Parcella**: aggiunta al selettore tipo documento per supportare
+  le fatture dei professionisti.
+- **Ritenuta d'acconto**: nuova sezione «Ritenuta & Cassa» che consente di abilitare la
+  ritenuta d'acconto (RT01–RT06) con aliquota, causale pagamento (codici CU) e calcolo
+  automatico dell'importo sulla base delle righe marcate con la colonna «Rit.».
+  L'importo ritenuta viene sottratto dall'ImportoTotaleDocumento e dall'ImportoPagamento
+  secondo le specifiche AdE v1.9 (campo 2.1.1.9).
+- **Casse Previdenziali**: supporto a DatiCassaPrevidenziale (TC01–TC22) con righe
+  dinamiche. Ogni riga cassa include TipoCassa, aliquota, imponibile, contributo calcolato
+  automaticamente, IVA, flag ritenuta e Natura. I contributi cassa entrano nell'imponibile
+  IVA e vengono inclusi in DatiRiepilogo.
+- **Colonna «Rit.» nelle righe fattura**: checkbox per marcare le singole righe soggette
+  a ritenuta d'acconto (emette `<Ritenuta>SI</Ritenuta>` in DettaglioLinee).
+- **Totali aggiornati**: la sezione Totali mostra ora «Ritenuta d'acconto» e «Netto da
+  pagare» quando la ritenuta è attiva.
+- **Import XML aggiornato**: i tag DatiRitenuta, DatiCassaPrevidenziale e il flag
+  Ritenuta per riga vengono ora letti e caricati correttamente dai file XML importati.
+
+---
+
 ## [0.03-alpha] - 2026-03-28
 
 ### Aggiunto
@@ -101,18 +124,13 @@ Il formato è basato su [Keep a Changelog](https://keepachangelog.com/it/1.0.0/)
 
 ## Roadmap
 
-### [0.03-alpha] — Visualizzatore & Importazione XML
-- Visualizzatore fatture elettroniche XML FPR12
-- Visualizzatore messaggi SDI (notifiche, ricevute, esiti)
-- Importazione di file XML esistenti per modifica/copia
-
-### [0.04-alpha] — Professionisti
-- Ritenuta d'acconto (RT01, RT02)
-- Cassa previdenziale (INPS gestione separata, etc.)
-- Parcella (TD06)
-
 ### [0.05-alpha] — Genera PDF
 - Anteprima e download PDF della fattura
+
+### [0.06-alpha] — ENASARCO
+- Gestione fatture agenti e rappresentanti di commercio
+- Ritenuta ENASARCO e contributo con aliquote specifiche
+- Calcolo automatico quote agente / mandante
 
 ### [0.10-beta] — Feature complete
 - Fattura PA (FPA12) con CIG/CUP

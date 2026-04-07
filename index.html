@@ -37,7 +37,7 @@
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Presentazione
     </a>
-    <span class="header-version">v0.03 alpha</span>
+    <span class="header-version">v0.04 alpha</span>
   </div>
 </header>
 
@@ -59,13 +59,14 @@
     <li><a href="#sec-sdi"        class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">📡</span>Trasmissione SDI</a></li>
     <li><a href="#sec-intestazione" class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">📄</span>Intestazione Fattura</a></li>
     <li><a href="#sec-righe"      class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">📋</span>Righe Fattura</a></li>
-    <li><a href="#sec-totali"     class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">∑</span>Totali</a></li>
-    <li><a href="#sec-riepilogo"  class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">%</span>Riepilogo IVA &amp; Bollo</a></li>
+    <li><a href="#sec-riepilogo"  class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">%</span>Riepilogo IVA</a></li>
+    <li><a href="#sec-professionista" class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">⚖</span>Ritenuta &amp; Cassa</a></li>
+    <li><a href="#sec-totali"     class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">∑</span>Totali &amp; Bollo</a></li>
     <li><a href="#sec-pagamento"  class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">€</span>Dati Pagamento</a></li>
     <li><a href="#sec-genera"     class="side-nav-link" onclick="navClick(this)"><span class="nav-icon">⬆</span>Genera Fattura</a></li>
   </ul>
   <div class="side-nav-footer">
-    <div style="font-size:.68rem;font-weight:600;color:rgba(255,255,255,.35);letter-spacing:.4px;margin-bottom:8px;font-family:'JetBrains Mono',monospace">BrioFE v0.03 alpha</div>
+    <div style="font-size:.68rem;font-weight:600;color:rgba(255,255,255,.35);letter-spacing:.4px;margin-bottom:8px;font-family:'JetBrains Mono',monospace">BrioFE v0.04 alpha</div>
     <a href="https://github.com/denvermotel/BrioFE" target="_blank" rel="noopener" class="side-nav-gh">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.38.6.1.82-.26.82-.58v-2.04c-3.34.72-4.04-1.61-4.04-1.61-.54-1.38-1.33-1.75-1.33-1.75-1.09-.74.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.14 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.57C20.57 21.79 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
       GitHub
@@ -275,7 +276,7 @@
       <div class="card-body">
         <div class="form-grid">
 
-          <div class="field col-6">
+          <div class="field col-4">
             <label>Progressivo Invio</label>
             <div class="progressivo-row">
               <input type="text" id="progressivo-invio" class="calc-input progressivo-input"
@@ -287,6 +288,20 @@
                 Modifica manualmente
               </label>
             </div>
+          </div>
+
+          <div class="field col-2">
+            <label>Tentativo invio</label>
+            <div style="display:flex;align-items:center;gap:4px">
+              <button type="button" onclick="stepTentativo(-1)"
+                      style="width:28px;height:28px;padding:0;font-size:1rem;line-height:1;cursor:pointer;border:1px solid var(--border);border-radius:var(--radius);background:var(--secondary-light);color:var(--text)">−</button>
+              <input type="number" id="tentativo-invio" min="1" max="11" value="1"
+                     style="width:44px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:600;padding:4px 2px"
+                     oninput="updateProgressivo()">
+              <button type="button" onclick="stepTentativo(1)"
+                      style="width:28px;height:28px;padding:0;font-size:1rem;line-height:1;cursor:pointer;border:1px solid var(--border);border-radius:var(--radius);background:var(--secondary-light);color:var(--text)">+</button>
+            </div>
+            <span class="field-hint">1 = primo invio &nbsp;·&nbsp; 2–11 = reinvio</span>
           </div>
 
           <div class="field col-3">
@@ -338,6 +353,7 @@
               <option value="TD01">TD01 – Fattura</option>
               <option value="TD04">TD04 – Nota di credito</option>
               <option value="TD05">TD05 – Nota di debito</option>
+              <option value="TD06">TD06 – Parcella</option>
               <option value="TD24">TD24 – Fattura differita (art.21 c.4 a)</option>
               <option value="TD25">TD25 – Fattura differita (art.21 c.4 b)</option>
               <option value="TD26">TD26 – Cessione beni ammortizzabili</option>
@@ -382,6 +398,8 @@
                 <th class="td-disc">Sconto %</th>
                 <th class="td-iva">IVA % <span style="color:#F87171">*</span></th>
                 <th class="td-natura">Natura (se IVA=0%)</th>
+                <th class="td-rit" title="Soggetta a ritenuta d'acconto">Rit.</th>
+                <th class="td-cassa" title="Cassa previdenziale applicata">Cassa</th>
                 <th class="td-tot text-right" style="background:#006D61">Imponibile €</th>
                 <th class="td-del"></th>
               </tr>
@@ -399,10 +417,10 @@
     </div>
 
     <!-- ────────────────────────────────────────────────────
-         RIEPILOGO IVA + TOTALI (affiancati)
+         RIEPILOGO IVA + RITENUTA & CASSE (affiancati)
     ─────────────────────────────────────────────────────── -->
     <div id="sec-riepilogo" class="section-anchor"></div>
-    <div id="sec-totali" class="section-anchor"></div>
+    <div id="sec-professionista" class="section-anchor"></div>
     <div class="bottom-grid">
 
       <div class="card">
@@ -426,7 +444,166 @@
         </div>
       </div>
 
-      <div class="card">
+      <!-- Ritenuta d'Acconto & Casse Previdenziali -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <div class="section-icon" style="background:#7B5EA7">⚖</div>
+          <h2>Ritenuta d'Acconto &amp; Casse Previdenziali</h2>
+        </div>
+        <div class="card-body">
+
+          <!-- ── Ritenuta d'acconto ── -->
+          <div class="prof-sub-section">
+            <div class="prof-sub-header">
+              <label class="checkbox-label" id="label-ritenuta-attiva">
+                <input type="checkbox" id="ritenuta-attiva" onchange="toggleRitenutaSection()"> Abilita Ritenuta d'Acconto
+              </label>
+              <span class="field-hint" style="margin-left:12px">«Ritenuta» nelle righe selezionate con ☑ nelle righe soggette</span>
+            </div>
+            <div id="ritenuta-dettaglio" style="display:none;margin-top:14px">
+              <div class="form-grid">
+                <div class="field col-6">
+                  <label>Tipo Ritenuta</label>
+                  <select id="ritenuta-tipo" onchange="recalc()">
+                    <option value="RT01">RT01 – Persone fisiche (autonomi)</option>
+                    <option value="RT02">RT02 – Persone giuridiche</option>
+                    <option value="RT03">RT03 – Contributo INPS</option>
+                    <option value="RT04">RT04 – Contributo ENASARCO</option>
+                    <option value="RT05">RT05 – Contributo ENPAM</option>
+                    <option value="RT06">RT06 – Altro contributo previdenziale</option>
+                  </select>
+                </div>
+                <div class="field col-3">
+                  <label>Aliquota (%)</label>
+                  <input type="number" id="ritenuta-aliquota" value="20.00" step="0.01" min="0" max="100" oninput="recalc()">
+                </div>
+                <div class="field col-3">
+                  <label>Importo</label>
+                  <div class="calc-display" id="ritenuta-importo-display">0,00 €</div>
+                </div>
+                <div class="field col-12">
+                  <label>Causale Pagamento (CU)</label>
+                  <select id="ritenuta-causale" onchange="recalc()">
+                    <option value="A">A – Autonomi art.49 c.1 TUIR</option>
+                    <option value="B">B – Autonomi uso abituale art.53 c.2 a)</option>
+                    <option value="C">C – Autonomi uso abituale art.53 c.2 b)-f)</option>
+                    <option value="D">D – Autonomi uso non abituale art.67 c.1 l)</option>
+                    <option value="E">E – Autonomi uso non abituale art.67 c.1 m)</option>
+                    <option value="G">G – Indennità cessazione agenzia</option>
+                    <option value="H">H – Indennità cessazione agenzia plurimandatari</option>
+                    <option value="I">I – Indennità cessazione rapporto agenzia</option>
+                    <option value="L">L – Redditi derivanti da levata protesti</option>
+                    <option value="L1">L1 – Redditi derivanti da levata protesti (notai)</option>
+                    <option value="M">M – Prestazioni di lavoro autonomo non abituali</option>
+                    <option value="M1">M1 – Assunzione di obblighi (fare/non fare/permettere)</option>
+                    <option value="M2">M2 – Lavoro autonomo non abituale art.44 c.2 L.342/2000</option>
+                    <option value="N">N – Indennità di trasferta, rimborsi forfettari</option>
+                    <option value="O">O – Lavoro autonomo non abituale art.67 c.1 l)</option>
+                    <option value="O1">O1 – Assunzione di obblighi art.67 c.1 l)</option>
+                    <option value="P">P – Compensi non residenti art.24 c.1 lett.b)</option>
+                    <option value="Q">Q – Provvigioni agenti monosocietari</option>
+                    <option value="R">R – Provvigioni agenti plurimandatari</option>
+                    <option value="S">S – Provvigioni subagenti</option>
+                    <option value="T">T – Provvigioni procacciatori d'affari</option>
+                    <option value="U">U – Provvigioni incaricati vendite a domicilio</option>
+                    <option value="V">V – Provvigioni vendite a domicilio art.25bis c.6</option>
+                    <option value="V1">V1 – Attività commerciali non abituali</option>
+                    <option value="W">W – Locazione breve art.4 DL 50/2017</option>
+                    <option value="X">X – (non in uso dal 2021)</option>
+                    <option value="Y">Y – Provvigioni agenti a subagenti</option>
+                    <option value="ZO">ZO – Titolo diverso dai precedenti</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Casse Previdenziali ── -->
+          <div class="prof-sub-section" style="margin-top:18px">
+            <div class="prof-sub-header">
+              <label class="checkbox-label" id="label-cassa-attiva">
+                <input type="checkbox" id="cassa-attiva" onchange="toggleCassaSection()"> Abilita Cassa Previdenziale
+              </label>
+              <span class="field-hint" style="margin-left:12px">«Cassa» nelle righe selezionate con ☑ nelle righe soggette</span>
+            </div>
+            <div id="cassa-dettaglio" style="display:none;margin-top:14px">
+              <div id="cassa-body"></div>
+              <div style="margin-top:10px">
+                <button type="button" class="btn-add-row" disabled title="BrioFE supporta attualmente una sola cassa previdenziale per fattura">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  Aggiungi Cassa
+                </button>
+                <span class="field-hint" style="margin-left:8px">Una sola cassa per fattura nella versione attuale</span>
+              </div>
+              <div class="field-hint" style="margin-top:8px">
+                Il contributo cassa viene incluso nell'imponibile IVA. L'<em>Imponibile Cassa</em> si calcola dalla somma delle righe con il checkbox «Cassa» attivo; se nessuna riga è marcata, usa il totale righe. <strong>Nota:</strong> BrioFE supporta una sola cassa previdenziale per fattura.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ────────────────────────────────────────────────────
+         BOLLO VIRTUALE + TOTALI (affiancati)
+    ─────────────────────────────────────────────────────── -->
+    <div id="sec-totali" class="section-anchor"></div>
+    <div class="bottom-grid">
+
+      <!-- Bollo Virtuale -->
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <div class="section-icon" style="background:#C0392B">☑</div>
+          <h2>Bollo Virtuale</h2>
+        </div>
+        <div class="card-body">
+          <div class="bollo-section">
+            <button type="button" class="btn-add-row" onclick="verificaBolloManuale()">⚠️ Verifica Bollo</button>
+            <div id="bollo-check-result" class="bollo-check-result" style="display:none;margin-top:8px"></div>
+            <div class="field" style="margin-top:10px">
+              <label>Bollo Virtuale</label>
+              <div class="checkbox-group">
+                <label class="checkbox-label" id="label-bollo-si">
+                  <input type="checkbox" id="bollo-si" name="bollo" onchange="el('bollo-no').checked=false;handleBolloChange();"> Sì
+                </label>
+                <label class="checkbox-label checked" id="label-bollo-no">
+                  <input type="checkbox" id="bollo-no" name="bollo" checked onchange="el('bollo-si').checked=false;handleBolloChange();"> No
+                </label>
+              </div>
+              <span class="field-hint">Bollo obbligatorio per fatture esenti/fuori campo IVA &gt; €77,47</span>
+              <div id="bollo-warning-obbligatorio" class="bollo-warning-box" style="display:none">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span><strong>Attenzione:</strong> il bollo virtuale è obbligatorio per questa fattura (importo &gt; €77,47 con operazione esente/fuori campo IVA) ma è stato disattivato manualmente. Verifica la correttezza prima di trasmettere al SDI.</span>
+              </div>
+            </div>
+            <div id="bollo-dettaglio" style="display:none">
+              <div id="bollo-importo-row" class="bollo-importo-row">
+                <div class="field" style="max-width:200px">
+                  <label>Importo Bollo (€)</label>
+                  <input type="number" id="importo-bollo" value="2.00" step="0.01" min="0" oninput="recalc();updateBolloRivalsaRow();">
+                </div>
+              </div>
+              <div class="field" style="margin-top:10px">
+                <label>Rivalsa Bollo</label>
+                <div class="checkbox-group">
+                  <label class="checkbox-label" id="label-rivalsa-si">
+                    <input type="checkbox" id="rivalsa-si" name="rivalsa" onchange="el('rivalsa-no').checked=false;handleRivalsaBolloChange();"> Sì
+                  </label>
+                  <label class="checkbox-label checked" id="label-rivalsa-no">
+                    <input type="checkbox" id="rivalsa-no" name="rivalsa" checked onchange="el('rivalsa-si').checked=false;handleRivalsaBolloChange();"> No
+                  </label>
+                </div>
+                <span class="field-hint">Se <strong>Sì</strong>: riga automatica con importo bollo, IVA 0%, Natura <strong>N1</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Totali -->
+      <div class="card" style="margin-bottom:0">
         <div class="card-header">
           <div class="section-icon" style="background:var(--primary)">∑</div>
           <h2>Totali</h2>
@@ -446,64 +623,20 @@
                 <span class="tot-label">Totale Fattura</span>
                 <span class="tot-value" id="tot-fattura">0,00 €</span>
               </div>
+              <div class="totals-row totals-row-ritenuta" id="tot-ritenuta-row" style="display:none">
+                <span class="tot-label">Ritenuta d'acconto</span>
+                <span class="tot-value" id="tot-ritenuta">0,00 €</span>
+              </div>
+              <div class="totals-row total-final totals-row-netto" id="tot-netto-row" style="display:none">
+                <span class="tot-label">Netto da pagare</span>
+                <span class="tot-value" id="tot-netto">0,00 €</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-    </div>
-
-    <!-- ────────────────────────────────────────────────────
-         BOLLO VIRTUALE (larghezza piena)
-    ─────────────────────────────────────────────────────── -->
-    <div class="card">
-      <div class="card-header">
-        <div class="section-icon" style="background:#C0392B">☑</div>
-        <h2>Bollo Virtuale</h2>
-      </div>
-      <div class="card-body">
-        <div class="bollo-section">
-          <button type="button" class="btn-add-row" onclick="verificaBolloManuale()">⚠️ Verifica Bollo</button>
-          <div id="bollo-check-result" class="bollo-check-result" style="display:none;margin-top:8px"></div>
-          <div class="field" style="margin-top:10px">
-            <label>Bollo Virtuale</label>
-            <div class="checkbox-group">
-              <label class="checkbox-label" id="label-bollo-si">
-                <input type="checkbox" id="bollo-si" name="bollo" onchange="el('bollo-no').checked=false;handleBolloChange();"> Sì
-              </label>
-              <label class="checkbox-label checked" id="label-bollo-no">
-                <input type="checkbox" id="bollo-no" name="bollo" checked onchange="el('bollo-si').checked=false;handleBolloChange();"> No
-              </label>
-            </div>
-            <span class="field-hint">Bollo obbligatorio per fatture esenti/fuori campo IVA &gt; €77,47</span>
-            <div id="bollo-warning-obbligatorio" class="bollo-warning-box" style="display:none">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <span><strong>Attenzione:</strong> il bollo virtuale è obbligatorio per questa fattura (importo &gt; €77,47 con operazione esente/fuori campo IVA) ma è stato disattivato manualmente. Verifica la correttezza prima di trasmettere al SDI.</span>
-            </div>
-          </div>
-          <div id="bollo-dettaglio" style="display:none">
-            <div id="bollo-importo-row" class="bollo-importo-row">
-              <div class="field" style="max-width:200px">
-                <label>Importo Bollo (€)</label>
-                <input type="number" id="importo-bollo" value="2.00" step="0.01" min="0" oninput="recalc();updateBolloRivalsaRow();">
-              </div>
-            </div>
-            <div class="field" style="margin-top:10px">
-              <label>Rivalsa Bollo</label>
-              <div class="checkbox-group">
-                <label class="checkbox-label" id="label-rivalsa-si">
-                  <input type="checkbox" id="rivalsa-si" name="rivalsa" onchange="el('rivalsa-no').checked=false;handleRivalsaBolloChange();"> Sì
-                </label>
-                <label class="checkbox-label checked" id="label-rivalsa-no">
-                  <input type="checkbox" id="rivalsa-no" name="rivalsa" checked onchange="el('rivalsa-si').checked=false;handleRivalsaBolloChange();"> No
-                </label>
-              </div>
-              <span class="field-hint">Se <strong>Sì</strong>: riga automatica con importo bollo, IVA 0%, Natura <strong>N1</strong></span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </div><!-- /bottom-grid bollo+totali -->
 
     <!-- ────────────────────────────────────────────────────
          PAGAMENTO
@@ -615,7 +748,7 @@
 </div><!-- app-body -->
 
 <footer class="app-footer">
-  <strong>BrioFE</strong> v0.03 alpha — Programma di Fatturazione Elettronica &nbsp;|&nbsp;
+  <strong>BrioFE</strong> v0.04 alpha — Programma di Fatturazione Elettronica &nbsp;|&nbsp;
   Conforme alle specifiche <a href="https://www.fatturapa.gov.it" target="_blank" rel="noopener">SDI FPR12 v1.2.3</a> dell'Agenzia delle Entrate &nbsp;|&nbsp;
   Nessun dato viene salvato o trasmesso a terzi &nbsp;|&nbsp;
   <a href="https://github.com/denvermotel/BrioFE" target="_blank" rel="noopener">GitHub</a>

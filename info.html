@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="BrioFE - Programma open source di Fatturazione Elettronica per la generazione di fatture XML FPR12 conformi SDI.">
-  <title>BrioFE — Fatturazione Elettronica Open Source</title>
+  <title>BrioFE — Fatturazione Elettronica</title>
   <link rel="icon" type="image/png" href="img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -347,7 +347,7 @@
 <section class="hero">
   <div class="hero-content">
     <img src="img/logo.png" alt="BrioFE" class="hero-logo">
-    <div class="hero-badge">✦ v0.03 alpha &nbsp;·&nbsp; Open Source &nbsp;·&nbsp; Gratis</div>
+    <div class="hero-badge">✦ v0.04 alpha &nbsp;·&nbsp; Open Source &nbsp;·&nbsp; Gratis</div>
     <h1>Fatturazione Elettronica<br><span>semplice, libera, sicura</span></h1>
     <p>Genera fatture elettroniche XML conformi al formato <strong style="color:white">SDI FPR12 v1.2.3</strong> direttamente nel browser. Nessuna installazione, nessun server, nessun dato salvato.</p>
     <div class="hero-actions">
@@ -488,7 +488,7 @@
         </tr>
         <tr>
           <td>Tipi documento</td>
-          <td>TD01, TD04, TD05, TD24, TD25, TD26, TD27</td>
+          <td>TD01, TD04, TD05, TD06, TD24, TD25, TD26, TD27</td>
           <td><span class="tag tag-green">✓ Supportati</span></td>
         </tr>
         <tr>
@@ -544,8 +544,18 @@
         </tr>
         <tr>
           <td>Ritenuta d'acconto</td>
-          <td>DatiRitenuta — RT01, RT02 (professionisti)</td>
-          <td><span class="tag tag-orange">Roadmap v0.04</span></td>
+          <td>DatiRitenuta — RT01–RT06, con colonna «Rit.» per riga e calcolo automatico importo</td>
+          <td><span class="tag tag-green">✓ v0.04</span></td>
+        </tr>
+        <tr>
+          <td>Casse Previdenziali</td>
+          <td>DatiCassaPrevidenziale — TC01–TC22 con checkbox «Cassa» per riga, contributo e IVA. <strong>Limite v0.04:</strong> una sola cassa previdenziale per fattura.</td>
+          <td><span class="tag tag-green">✓ v0.04</span></td>
+        </tr>
+        <tr>
+          <td>ENASARCO</td>
+          <td>Gestione Enasarco (agenti/rappresentanti): ritenuta e contributo dedicati</td>
+          <td><span class="tag tag-orange">Roadmap v0.06</span></td>
         </tr>
       </tbody>
     </table>
@@ -582,7 +592,7 @@
         </ul>
       </div>
       <div class="roadmap-item done">
-        <div class="roadmap-version done">v0.03-alpha ✓ Ora</div>
+        <div class="roadmap-version done">v0.03-alpha ✓</div>
         <h3>Importazione XML</h3>
         <ul>
           <li>Importa fattura XML completa</li>
@@ -591,17 +601,18 @@
           <li>Layout Riepilogo + Totali affiancati</li>
         </ul>
       </div>
-      <div class="roadmap-item next">
-        <div class="roadmap-version next">v0.04-alpha ⟶ Prossimo</div>
+      <div class="roadmap-item done">
+        <div class="roadmap-version done">v0.04-alpha ✓ Ora</div>
         <h3>Professionisti</h3>
         <ul>
-          <li>Ritenuta d'acconto (RT01, RT02)</li>
-          <li>Cassa previdenziale (INPS, etc.)</li>
+          <li>Ritenuta d'acconto (RT01–RT06)</li>
+          <li>Casse previdenziali (TC01–TC22)</li>
+          <li>Colonne Rit. e Cassa per riga</li>
           <li>Parcella (TD06)</li>
         </ul>
       </div>
-      <div class="roadmap-item planned">
-        <div class="roadmap-version planned">v0.05-alpha · Pianificato</div>
+      <div class="roadmap-item next">
+        <div class="roadmap-version next">v0.05-alpha ⟶ Prossimo</div>
         <h3>Genera PDF</h3>
         <ul>
           <li>Anteprima fattura in PDF</li>
@@ -609,11 +620,19 @@
         </ul>
       </div>
       <div class="roadmap-item planned">
+        <div class="roadmap-version planned">v0.06-alpha · Pianificato</div>
+        <h3>ENASARCO</h3>
+        <ul>
+          <li>Gestione agenti e rappresentanti</li>
+          <li>Ritenuta e contributo ENASARCO</li>
+          <li>Calcolo automatico aliquote</li>
+        </ul>
+      </div>
+      <div class="roadmap-item planned">
         <div class="roadmap-version planned">v0.10-beta · Pianificato</div>
         <h3>Feature complete</h3>
         <ul>
           <li>Fattura PA (FPA12 + CIG/CUP)</li>
-          <li>Genera PDF</li>
           <li>Salvataggio template cedente</li>
         </ul>
       </div>
@@ -642,7 +661,7 @@
 
 <!-- FOOTER -->
 <footer>
-  <strong>BrioFE</strong> v0.03 alpha — Programma di Fatturazione Elettronica Open Source &nbsp;|&nbsp;
+  <strong>BrioFE</strong> v0.04 alpha — Programma di Fatturazione Elettronica Open Source &nbsp;|&nbsp;
   Licenza <a href="LICENSE">GPL-3.0</a> &nbsp;|&nbsp;
   <a href="https://github.com/denvermotel/BrioFE" target="_blank" rel="noopener">GitHub</a> &nbsp;|&nbsp;
   Conforme alle specifiche <a href="https://www.fatturapa.gov.it" target="_blank" rel="noopener">SDI FPR12 v1.2.3</a>
